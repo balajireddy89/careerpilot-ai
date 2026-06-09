@@ -19,7 +19,11 @@ create table if not exists public.student_profiles (
   current_year text default '3rd',
   graduation_year int default 2027,
   cgpa text default '',
-  target_role text default 'Full Stack Developer',
+  target_role text default '',
+  primary_priority text default '',
+  learning_roadmap jsonb not null default '[]'::jsonb,
+  quiz_rewards jsonb not null default '{}'::jsonb,
+  coding_rewards jsonb not null default '{}'::jsonb,
 
   aims jsonb not null default '[]'::jsonb,
   preferred_paths jsonb not null default '[]'::jsonb,

@@ -2,9 +2,16 @@ import React, { useState } from 'react';
 import { Save, User, Briefcase, GraduationCap, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const SKILL_OPTIONS = ['Java', 'Python', 'JavaScript', 'React', 'SQL', 'HTML', 'CSS', 'Git', 'Spring Boot', 'Node.js'];
-const COMPANY_OPTIONS = ['TCS', 'Infosys', 'Wipro', 'Accenture', 'Google', 'Microsoft', 'Amazon'];
-const PATH_OPTIONS = ['Full Stack Developer', 'Frontend Developer', 'Backend Developer', 'Data Scientist', 'DevOps Engineer'];
+import { ALL_CS_SKILLS } from '../lib/csSkillsCatalog';
+import { PREFERRED_COMPANY_OPTIONS } from '../lib/companyOptions';
+
+const SKILL_OPTIONS = ALL_CS_SKILLS.slice(0, 24);
+const COMPANY_OPTIONS = PREFERRED_COMPANY_OPTIONS;
+const PATH_OPTIONS = [
+  'Frontend Developer', 'Backend Developer', 'Full Stack Developer', 'Mobile Developer',
+  'Data Scientist', 'AI/ML Engineer', 'DevOps Engineer', 'Cloud Engineer', 'Cybersecurity Analyst',
+  'Database Administrator', 'Software Engineer', 'UI/UX Designer', 'Computer Science (General)',
+];
 
 export default function ProfileSettings({ profile, setProfile }) {
   const { signOut } = useAuth();
@@ -18,7 +25,8 @@ export default function ProfileSettings({ profile, setProfile }) {
     currentYear: profile.currentYear || '3rd',
     graduationYear: profile.graduationYear || 2027,
     cgpa: profile.cgpa || '',
-    targetRole: profile.targetRole || 'Full Stack Developer',
+    targetRole: profile.targetRole || profile.primaryPriority || '',
+    primaryPriority: profile.primaryPriority || profile.targetRole || '',
     workType: profile.workType || 'Hybrid',
     weeklyHours: profile.weeklyHours || '10-20',
     skills: profile.skills || [],
@@ -51,7 +59,8 @@ export default function ProfileSettings({ profile, setProfile }) {
       await setProfile({
         ...profile,
         ...form,
-        targetRole: form.targetRole || form.preferredPaths[0] || profile.targetRole,
+        targetRole: form.primaryPriority || form.targetRole || form.preferredPaths[0] || '',
+        primaryPriority: form.primaryPriority || form.targetRole || form.preferredPaths[0] || '',
       });
       setSaved(true);
     } finally {
@@ -124,8 +133,9 @@ export default function ProfileSettings({ profile, setProfile }) {
             <Briefcase className="w-4 h-4 text-brand-500" /> Career Preferences
           </h2>
           <div>
-            <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Target Role</label>
-            <select name="targetRole" value={form.targetRole} onChange={handleChange} className="glass-input w-full text-xs">
+            <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Primary Learning Priority</label>
+            <select name="primaryPriority" value={form.primaryPriority || form.targetRole} onChange={handleChange} className="glass-input w-full text-xs">
+              <option value="">Select your main focus</option>
               {PATH_OPTIONS.map((path) => (
                 <option key={path} value={path}>{path}</option>
               ))}
@@ -172,7 +182,7 @@ export default function ProfileSettings({ profile, setProfile }) {
 
           <div>
             <p className="text-[10px] font-bold uppercase text-slate-400 mb-2">Preferred Companies</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
               {COMPANY_OPTIONS.map((company) => (
                 <button
                   key={company}

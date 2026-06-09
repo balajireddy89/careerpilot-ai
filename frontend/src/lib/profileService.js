@@ -16,7 +16,11 @@ function rowToProfile(row) {
     currentYear: row.current_year ?? '3rd',
     graduationYear: row.graduation_year ?? 2027,
     cgpa: row.cgpa ?? '',
-    targetRole: row.target_role ?? 'Full Stack Developer',
+    targetRole: row.target_role ?? '',
+    primaryPriority: row.primary_priority ?? row.target_role ?? '',
+    learningRoadmap: row.learning_roadmap ?? [],
+    quizRewards: row.quiz_rewards ?? {},
+    codingRewards: row.coding_rewards ?? {},
     aims: row.aims ?? [],
     preferredPaths: row.preferred_paths ?? [],
     skills: row.skills ?? [],
@@ -61,8 +65,9 @@ function prepareProfile(row) {
 function profileToRow(profile, userId) {
   const targetRole =
     profile.targetRole ||
+    profile.primaryPriority ||
     profile.preferredPaths?.[0] ||
-    'Full Stack Developer';
+    '';
 
   return {
     user_id: userId,
@@ -77,6 +82,10 @@ function profileToRow(profile, userId) {
     graduation_year: Number(profile.graduationYear) || 2027,
     cgpa: profile.cgpa ?? '',
     target_role: targetRole,
+    primary_priority: profile.primaryPriority || targetRole,
+    learning_roadmap: profile.learningRoadmap ?? [],
+    quiz_rewards: profile.quizRewards ?? {},
+    coding_rewards: profile.codingRewards ?? {},
     aims: profile.aims ?? [],
     preferred_paths: profile.preferredPaths ?? [],
     skills: profile.skills ?? [],

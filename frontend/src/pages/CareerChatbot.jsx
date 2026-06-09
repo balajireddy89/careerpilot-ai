@@ -9,7 +9,7 @@ import { recalculateReadiness } from '../mock/mockData';
 function buildWelcomeMessage(profile) {
   return {
     id: 1,
-    text: `Hello **${profile.name || 'there'}**! I'm your CareerPilot AI Advisor.\n\nI'm connected to your live data across all modules — skills, resume, placements, internships, interviews, coding, aptitude, and roadmap.\n\n**Your readiness:** ${recalculateReadiness(profile)}% | **Profile:** ${profile.skills?.length ?? 0} skills tracked\n\nWhat would you like to know?`,
+    text: `Hello **${profile.name || 'there'}**! I'm your CareerPilot AI Advisor.\n\nI'm connected to your live Supabase profile — skills, resume, placement readiness, interviews, coding, aptitude, and your learning roadmap.\n\n**Focus:** ${profile.primaryPriority || profile.targetRole || 'Set in Profile'} | **Readiness:** ${recalculateReadiness(profile)}% | **Skills:** ${profile.skills?.length ?? 0}\n\nWhat would you like to know?`,
     sender: 'bot',
   };
 }
@@ -31,12 +31,12 @@ export default function CareerChatbot({ profile }) {
   const messagesEndRef = useRef(null);
 
   const suggestions = [
-    'Which career should I choose?',
-    'What skills am I missing?',
+    'What skills am I missing for my target role?',
     'Am I ready for placements?',
-    'Which internships should I apply for?',
     'How can I improve my resume?',
     'How is my coding and aptitude progress?',
+    'What should I study next on my roadmap?',
+    'Tips for technical interview prep',
   ];
 
   useEffect(() => {
@@ -104,7 +104,7 @@ export default function CareerChatbot({ profile }) {
           <MessageCircle className="w-8 h-8 text-brand-500" /> AI Career Chatbot
         </h1>
         <p className="text-slate-600 dark:text-slate-400 mt-1">
-          Answers powered by your real Skill Assessment, Resume, Placement, Internship, Interview, Coding, Aptitude, and Roadmap data.
+          Answers powered by your live profile — skills, resume, placement score, interviews, coding, aptitude, and roadmap.
         </p>
       </div>
 
@@ -166,7 +166,7 @@ export default function CareerChatbot({ profile }) {
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyPress}
-              className="glass-input flex-1 py-2 text-xs focus:ring-1"
+              className="glass-input flex-1 py-2.5 text-sm focus:ring-1"
               disabled={botTyping}
             />
             <button
@@ -191,7 +191,7 @@ export default function CareerChatbot({ profile }) {
                 <button
                   key={index}
                   onClick={() => handleSendMessage(sug)}
-                  className="w-full text-left p-3 bg-slate-100/50 dark:bg-slate-900/30 hover:bg-brand-500/5 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 rounded-xl flex items-center justify-between group transition-all"
+                  className="w-full text-left p-3 bg-slate-100/50 dark:bg-slate-900/30 hover:bg-brand-500/5 border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-700 dark:text-slate-300 rounded-xl flex items-center justify-between group transition-all"
                 >
                   <span className="leading-snug pr-2">{sug}</span>
                   <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-brand-500 shrink-0 transition-colors" />

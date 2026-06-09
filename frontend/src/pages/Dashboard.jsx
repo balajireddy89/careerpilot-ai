@@ -41,7 +41,7 @@ export default function Dashboard({ profile }) {
               Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-pink-400">{profile.name || 'Student'}</span>!
             </h1>
             <p className="text-slate-600 dark:text-slate-300 mt-2">
-              {profile.college || 'Complete your profile'} • Target: <span className="font-semibold">{profile.targetRole}</span>
+              {profile.college || 'Complete your profile'} • Focus: <span className="font-semibold">{profile.primaryPriority || profile.targetRole || profile.preferredPaths?.[0] || 'Set in Profile'}</span>
             </p>
           </div>
           <div className="flex items-center gap-4 bg-white/40 dark:bg-slate-800/40 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/20 dark:border-slate-800/60">

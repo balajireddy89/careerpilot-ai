@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Target, User, Briefcase, Award, UploadCloud, ShieldCheck, CheckCircle2, ChevronRight, ChevronLeft, Brain, HelpCircle, Star } from 'lucide-react';
+import { User, Briefcase, Award, UploadCloud, CheckCircle2, ChevronRight, ChevronLeft, Brain } from 'lucide-react';
 import { recalculateReadiness, calculateProfileCompletion, INITIAL_PROFILE } from '../mock/mockData';
+import { generateRoadmapWithAI } from '../lib/aiService';
+import { PREFERRED_COMPANY_OPTIONS } from '../lib/companyOptions';
 
 export default function OnboardingWizard({ profile, setProfile }) {
   const [step, setStep] = useState(1);
@@ -19,6 +21,7 @@ export default function OnboardingWizard({ profile, setProfile }) {
     graduationYear: profile.graduationYear || 2027,
     cgpa: profile.cgpa || "",
     aims: profile.aims || [],
+    primaryPriority: profile.primaryPriority || profile.targetRole || '',
     preferredPaths: profile.preferredPaths || [],
     skills: profile.skills || [],
     skillsProficiency: profile.skillsProficiency || {},
@@ -117,7 +120,11 @@ export default function OnboardingWizard({ profile, setProfile }) {
 
   const handleNextStep = () => {
     if (step === 1 && !formData.name.trim()) {
-      alert("Please provide your name. Other fields are optional.");
+      alert('Please enter your full name to continue.');
+      return;
+    }
+    if (step === 2 && !formData.primaryPriority) {
+      alert('Please select your main learning priority / career path.');
       return;
     }
     setStep(prev => prev + 1);
@@ -128,21 +135,31 @@ export default function OnboardingWizard({ profile, setProfile }) {
   };
 
   const handleCompleteOnboarding = async () => {
-    // Math logic for aptitude assessment
     let correctCount = 0;
     if (aptAnswers.q1 === "150 metres") correctCount++;
     if (aptAnswers.q2 === "22") correctCount++;
     if (aptAnswers.q3 === "Flexible") correctCount++;
     const finalAptPct = Math.round((correctCount / 3) * 100);
 
-    const calculatedReadiness = 82; // standard user onboarding baseline matches
+    let learningRoadmap = [];
+    try {
+      learningRoadmap = await generateRoadmapWithAI({
+        profile: { ...profile, ...formData, skills: formData.skills },
+        courseFocus: formData.primaryPriority,
+      });
+    } catch (err) {
+      console.warn('Roadmap generation during onboarding failed:', err);
+    }
 
     const completedProfile = {
       ...profile,
       onboarded: true,
       name: formData.name,
       email: formData.email || profile.email,
-      targetRole: formData.preferredPaths[0] || profile.targetRole || "Full Stack Developer",
+      primaryPriority: formData.primaryPriority,
+      targetRole: formData.primaryPriority,
+      preferredPaths: formData.primaryPriority ? [formData.primaryPriority, ...formData.preferredPaths.filter((p) => p !== formData.primaryPriority)] : formData.preferredPaths,
+      learningRoadmap,
       phone: formData.phone,
       college: formData.college,
       degree: formData.degree,
@@ -308,21 +325,29 @@ export default function OnboardingWizard({ profile, setProfile }) {
               </div>
 
               <div>
-                <label className="text-xs font-extrabold text-slate-500 uppercase block mb-2">Preferred Career Paths</label>
+                <label className="text-xs font-extrabold text-slate-500 uppercase block mb-2">
+                  Main Learning Priority <span className="text-rose-500">*</span>
+                </label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {[
-                    "Full Stack Developer", "Frontend Developer", "Backend Developer", 
-                    "AI/ML Engineer", "Data Analyst", "Cybersecurity Analyst", 
-                    "Cloud Engineer", "DevOps Engineer", "Mobile Developer", "UI/UX Designer"
+                    "Frontend Developer", "Backend Developer", "Full Stack Developer",
+                    "AI/ML Engineer", "Data Scientist", "Cybersecurity Analyst",
+                    "Cloud Engineer", "DevOps Engineer", "Mobile Developer", "UI/UX Designer",
+                    "Computer Science (General)", "Database Administrator",
                   ].map((path) => {
-                    const isSelected = formData.preferredPaths.includes(path);
+                    const isSelected = formData.primaryPriority === path;
                     return (
                       <button
                         key={path}
-                        onClick={() => handleMultiSelect("preferredPaths", path)}
+                        type="button"
+                        onClick={() => setFormData((prev) => ({
+                          ...prev,
+                          primaryPriority: path,
+                          preferredPaths: prev.preferredPaths.includes(path) ? prev.preferredPaths : [path, ...prev.preferredPaths],
+                        }))}
                         className={`text-left p-3 rounded-xl border text-xs font-semibold transition-all ${
-                          isSelected 
-                            ? 'bg-brand-600 text-white border-brand-600' 
+                          isSelected
+                            ? 'bg-brand-600 text-white border-brand-600'
                             : 'bg-white/40 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
                         }`}
                       >
@@ -544,7 +569,7 @@ export default function OnboardingWizard({ profile, setProfile }) {
               <div className="space-y-3 p-4 bg-slate-100/40 dark:bg-slate-900/30 border border-slate-200/50 dark:border-slate-800 rounded-2xl">
                 <h4 className="text-xs font-bold text-slate-500 uppercase">Preferred Companies</h4>
                 <div className="flex flex-wrap gap-2">
-                  {["TCS", "Infosys", "Wipro", "Accenture", "Google", "Microsoft", "Other"].map((comp) => {
+                  {PREFERRED_COMPANY_OPTIONS.slice(0, 20).map((comp) => {
                     const isSelected = formData.preferredCompanies.includes(comp);
                     return (
                       <button
@@ -660,49 +685,17 @@ export default function OnboardingWizard({ profile, setProfile }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
               <div className="p-4 bg-slate-100/50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800 rounded-2xl space-y-3">
                 <h4 className="text-xs font-bold text-rose-500 uppercase tracking-wider">Skill Gap Report</h4>
-                <p className="font-semibold">Target: Full Stack Developer</p>
+                <p className="font-semibold">Target: {formData.primaryPriority || 'Not set'}</p>
                 <div className="space-y-1 text-slate-500">
-                  <div>- SQL (Relational database missing)</div>
-                  <div>- React (Frontend frameworks missing)</div>
-                  <div>- Spring Boot (Enterprise Java missing)</div>
+                  <div>Skills selected: {formData.skills.length}</div>
+                  <div>Complete quizzes in Technical Interview to verify skills.</div>
                 </div>
               </div>
 
               <div className="p-4 bg-slate-100/50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800 rounded-2xl space-y-3">
-                <h4 className="text-xs font-bold text-emerald-500 uppercase tracking-wider">AI Recommendation</h4>
-                <div className="space-y-1 font-semibold">
-                  <div>1. Full Stack Developer (89%)</div>
-                  <div>2. Backend Developer (84%)</div>
-                  <div>3. Cloud Engineer (65%)</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Visual Roadmap milestones */}
-            <div className="p-4 bg-slate-100/50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800 rounded-2xl space-y-4">
-              <h4 className="text-xs font-bold text-brand-500 uppercase tracking-wider">Personalized Roadmap</h4>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-                {[
-                  { m: "Month 1", task: "Java OOP + SQL" },
-                  { m: "Month 2", task: "Spring Boot" },
-                  { m: "Month 3", task: "React" },
-                  { m: "Month 4", task: "Projects + Interview Prep" }
-                ].map((item, idx) => (
-                  <div key={idx} className="p-3 bg-white/40 dark:bg-slate-900/20 border border-slate-100 dark:border-slate-800 rounded-xl relative">
-                    <span className="text-[10px] text-brand-500 font-extrabold uppercase">{item.m}</span>
-                    <p className="font-bold text-slate-800 dark:text-white mt-1 leading-normal">{item.task}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Internship Suggestions */}
-            <div className="p-4 bg-slate-100/50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800 rounded-2xl space-y-2 text-xs">
-              <h4 className="text-xs font-bold text-blue-500 uppercase tracking-wider">AI Internship Suggestions</h4>
-              <div className="flex gap-4 font-bold text-slate-700 dark:text-slate-300 pt-1">
-                <span>• Java Intern</span>
-                <span>• Backend Intern</span>
-                <span>• Full Stack Intern</span>
+                <h4 className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Your Focus</h4>
+                <p className="font-semibold text-slate-700 dark:text-slate-300">{formData.primaryPriority}</p>
+                <p className="text-slate-500">A personalized 4-month roadmap will be generated when you unlock the dashboard.</p>
               </div>
             </div>
           </div>

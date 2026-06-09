@@ -131,8 +131,8 @@ export default function HRInterview({ profile, setProfile }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div className="glass-card p-6 border-l-4 border-brand-500 space-y-3 relative overflow-hidden">
-            <div className="text-[10px] uppercase font-bold text-brand-600 dark:text-brand-400 tracking-wider">QUESTION {currentQuestionIndex + 1} OF {HR_QUESTIONS.length}</div>
-            <p className="text-lg font-bold text-slate-900 dark:text-white leading-normal">
+            <div className="text-xs uppercase font-bold text-brand-600 dark:text-brand-400 tracking-wider">QUESTION {currentQuestionIndex + 1} OF {HR_QUESTIONS.length}</div>
+            <p className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white leading-relaxed">
               &ldquo;{HR_QUESTIONS[currentQuestionIndex]}&rdquo;
             </p>
           </div>
@@ -158,7 +158,7 @@ export default function HRInterview({ profile, setProfile }) {
               placeholder="Record your response using your microphone, or type your answer here..."
               value={answerText}
               onChange={(e) => setAnswerText(e.target.value)}
-              className="glass-input w-full text-sm font-medium leading-relaxed resize-none"
+              className="glass-input w-full text-base font-medium leading-relaxed resize-none"
               disabled={evaluating}
             />
 
@@ -217,12 +217,12 @@ export default function HRInterview({ profile, setProfile }) {
 
               <div className="space-y-2">
                 <div className="text-[10px] uppercase font-bold text-slate-400">CONSTRUCTIVE FEEDBACK</div>
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-normal">{evaluationResult.feedback}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{evaluationResult.feedback}</p>
               </div>
 
               <div className="space-y-2">
                 <div className="text-[10px] uppercase font-bold text-brand-500">IDEAL SAMPLE ANSWER</div>
-                <p className="text-xs text-slate-600 dark:text-slate-300 bg-brand-500/5 p-3 rounded-xl border border-brand-500/10 leading-relaxed italic">
+                <p className="text-sm text-slate-600 dark:text-slate-300 bg-brand-500/5 p-3 rounded-xl border border-brand-500/10 leading-relaxed italic">
                   &ldquo;{evaluationResult.sampleAnswer}&rdquo;
                 </p>
               </div>

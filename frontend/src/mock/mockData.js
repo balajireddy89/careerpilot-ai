@@ -16,7 +16,11 @@ export const INITIAL_PROFILE = {
   cgpa: "",
 
   // 2. Career Goals
-  targetRole: "Full Stack Developer",
+  targetRole: "",
+  primaryPriority: "",
+  learningRoadmap: [],
+  quizRewards: {},
+  codingRewards: {},
   aims: [], // Internship, Placement, Higher Studies, etc.
   preferredPaths: [], // Full Stack Developer, Frontend Developer, etc.
 
@@ -304,16 +308,8 @@ const HR_QUESTIONS = [
   "What are your greatest strengths and weaknesses?"
 ];
 
-const TECH_QUIZZES = {
-  "Java": [
-    { q: "Which class is the superclass of all classes in Java?", options: ["String", "Object", "Class", "System"], a: "Object" },
-    { q: "Which keyword is used to prevent method overriding?", options: ["final", "static", "abstract", "private"], a: "final" }
-  ],
-  "Databases": [
-    { q: "What is the SQL constraint used to enforce unique identity?", options: ["UNIQUE", "PRIMARY KEY", "FOREIGN KEY", "NOT NULL"], a: "PRIMARY KEY" },
-    { q: "Which normalization form removes transitive dependencies?", options: ["1NF", "2NF", "3NF", "BCNF"], a: "3NF" }
-  ]
-};
+/** Static fallback only — live quizzes use AI generation in Technical Interview */
+const TECH_QUIZZES = {};
 
 const MOCK_INTERNSHIPS = [
   { id: "int-1", role: "Frontend Development Intern", company: "WebFlow Inc.", match: 90, required: ["React", "HTML", "CSS", "JavaScript"], location: "Remote", stipend: "$800/mo" },

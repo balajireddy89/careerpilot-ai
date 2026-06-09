@@ -1,104 +1,95 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Calendar, CheckCircle2, Award, Circle, RefreshCw } from 'lucide-react';
 import { generateRoadmapWithAI } from '../lib/aiService';
 import { getProfileKey, useFeatureSession } from '../hooks/useFeatureSession';
 
-const FALLBACK_ROADMAP = [
-  {
-    month: 'Month 1',
-    title: 'Core Foundations',
-    desc: 'Build programming and database fundamentals.',
-    topics: [
-      { name: 'OOP Principles', status: false },
-      { name: 'SQL Basics', status: false },
-      { name: 'Git Version Control', status: false },
-    ],
-  },
-  {
-    month: 'Month 2',
-    title: 'Frontend Skills',
-    desc: 'Learn modern web development.',
-    topics: [
-      { name: 'JavaScript ES6+', status: false },
-      { name: 'React Fundamentals', status: false },
-      { name: 'Responsive UI', status: false },
-    ],
-  },
-  {
-    month: 'Month 3',
-    title: 'Backend Development',
-    desc: 'APIs and server-side logic.',
-    topics: [
-      { name: 'REST API Design', status: false },
-      { name: 'Database Integration', status: false },
-      { name: 'Authentication', status: false },
-    ],
-  },
-  {
-    month: 'Month 4',
-    title: 'Interview Prep',
-    desc: 'Placement readiness and mock interviews.',
-    topics: [
-      { name: 'Coding Practice', status: false },
-      { name: 'HR Mock Sessions', status: false },
-      { name: 'Resume Optimization', status: false },
-    ],
-  },
-];
-
-const ROADMAP_SESSION_DEFAULT = { roadmapState: null, aiGenerated: false };
+const ROADMAP_SESSION_DEFAULT = { customCourse: '' };
 
 export default function LearningRoadmap({ profile, setProfile }) {
   const profileKey = getProfileKey(profile);
   const [session, setSession] = useFeatureSession('learning-roadmap', profileKey, ROADMAP_SESSION_DEFAULT);
   const [generating, setGenerating] = useState(false);
 
-  const roadmapState = session.roadmapState || FALLBACK_ROADMAP;
+  const displayFocus = profile.primaryPriority || profile.targetRole || profile.preferredPaths?.[0] || '';
+  const roadmapState = profile.learningRoadmap?.length > 0 ? profile.learningRoadmap : [];
+  const canShowTarget = Boolean(profile.college?.trim() && profile.graduationYear);
 
-  const generateRoadmap = () => {
+  const generateRoadmap = async (courseFocus = null) => {
     setGenerating(true);
-    generateRoadmapWithAI({ profile })
-      .then((months) => setSession({ roadmapState: months, aiGenerated: true }))
-      .catch((err) => {
-        console.warn('Roadmap AI failed:', err);
-        if (!session.roadmapState) setSession({ roadmapState: FALLBACK_ROADMAP, aiGenerated: false });
-      })
-      .finally(() => setGenerating(false));
+    try {
+      const months = await generateRoadmapWithAI({ profile, courseFocus: courseFocus || displayFocus });
+      await setProfile({ ...profile, learningRoadmap: months });
+    } catch (err) {
+      console.warn('Roadmap AI failed:', err);
+      alert('Failed to generate roadmap. Check OpenRouter API key.');
+    } finally {
+      setGenerating(false);
+    }
   };
 
-  useEffect(() => {
-    if (!session.roadmapState) generateRoadmap();
-  }, [profile.email]);
-
-  const handleToggleTopic = (monthIndex, topicIndex) => {
+  const handleToggleTopic = async (monthIndex, topicIndex) => {
     const newRoadmap = roadmapState.map((m, mi) => ({
       ...m,
       topics: m.topics.map((t, ti) => (mi === monthIndex && ti === topicIndex ? { ...t, status: !t.status } : t)),
     }));
-    setSession((prev) => ({ ...prev, roadmapState: newRoadmap }));
-
     const topic = roadmapState[monthIndex].topics[topicIndex];
-    if (!topic.status) {
-      setProfile({ ...profile, points: profile.points + 40 });
-    }
+    const points = !topic.status ? profile.points + 40 : profile.points;
+    await setProfile({ ...profile, learningRoadmap: newRoadmap, points });
+  };
+
+  const handleCustomGenerate = (e) => {
+    e.preventDefault();
+    const course = session.customCourse.trim();
+    if (!course) return;
+    generateRoadmap(course);
   };
 
   return (
     <div className="space-y-8 animate-fade-in">
-      <div className="flex justify-between items-start gap-4">
+      <div className="flex justify-between items-start gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white">AI Personalized Roadmap</h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
-            {session.aiGenerated ? 'OpenRouter-generated plan' : 'Default plan'} for <strong>{profile.targetRole}</strong>. Progress persists across tabs.
+            {displayFocus ? (
+              <>Tailored for <strong>{displayFocus}</strong> — saved to your Supabase profile.</>
+            ) : (
+              'Set your primary learning priority in Profile or onboarding.'
+            )}
           </p>
         </div>
-        <button type="button" onClick={generateRoadmap} disabled={generating} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-slate-500 border border-slate-200 dark:border-slate-800 rounded-lg shrink-0">
+        <button
+          type="button"
+          onClick={() => generateRoadmap()}
+          disabled={generating || !displayFocus}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-slate-500 border border-slate-200 dark:border-slate-800 rounded-lg shrink-0 disabled:opacity-50"
+        >
           <RefreshCw className={`w-3 h-3 ${generating ? 'animate-spin' : ''}`} /> Regenerate
         </button>
       </div>
 
-      {generating && !session.roadmapState && (
-        <p className="text-xs text-slate-400 flex items-center gap-2"><RefreshCw className="w-3 h-3 animate-spin" /> OpenRouter building your roadmap...</p>
+      <form onSubmit={handleCustomGenerate} className="glass-card p-4 flex flex-col sm:flex-row gap-2">
+        <input
+          type="text"
+          placeholder="Custom course e.g. Machine Learning, Backend with Java..."
+          value={session.customCourse}
+          onChange={(e) => setSession((prev) => ({ ...prev, customCourse: e.target.value }))}
+          className="glass-input flex-1 text-sm"
+        />
+        <button type="submit" disabled={generating} className="bg-brand-600 text-white px-4 py-2 rounded-xl text-xs font-bold shrink-0">
+          Generate Roadmap
+        </button>
+      </form>
+
+      {generating && roadmapState.length === 0 && (
+        <p className="text-xs text-slate-400 flex items-center gap-2">
+          <RefreshCw className="w-3 h-3 animate-spin" /> OpenRouter building your roadmap...
+        </p>
+      )}
+
+      {roadmapState.length === 0 && !generating && (
+        <div className="glass-card p-8 text-center text-sm text-slate-500">
+          No roadmap yet. Complete onboarding or click Regenerate / enter a custom course above.
+        </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -143,11 +134,16 @@ export default function LearningRoadmap({ profile, setProfile }) {
         </div>
         <div className="glass-card p-6 space-y-4">
           <Award className="w-5 h-5 text-amber-500" />
-          <p className="text-xs text-slate-500">Each completed topic awards +40 XP. Roadmap checklist state is saved in your browser session.</p>
-          <div className="p-3 bg-brand-500/10 rounded-xl flex items-center gap-2 text-xs">
-            <Calendar className="w-4 h-4 text-brand-500" />
-            Target: {profile.graduationYear || 2027}
-          </div>
+          <p className="text-xs text-slate-500">Each completed topic awards +40 XP. Roadmap is stored in Supabase.</p>
+          {canShowTarget ? (
+            <div className="p-3 bg-brand-500/10 rounded-xl flex items-center gap-2 text-xs">
+              <Calendar className="w-4 h-4 text-brand-500" />
+              Target graduation: {profile.graduationYear}
+              {profile.college && ` · ${profile.college}`}
+            </div>
+          ) : (
+            <p className="text-[10px] text-slate-400">Add college and graduation year in Profile to see your target timeline.</p>
+          )}
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Timer, Play, RefreshCw, ChevronRight } from 'lucide-react';
-import { APTITUDE_QUESTIONS } from '../mock/mockData';
-import { getAptitudeTestReview } from '../lib/aiService';
+import { Timer, Play, RefreshCw, ChevronRight, AlertCircle } from 'lucide-react';
+import { generateAptitudeQuestions, getAptitudeTestReview } from '../lib/aiService';
+import { recordQuizCompletion } from '../lib/quizRewards';
 import { getProfileKey, useFeatureSession } from '../hooks/useFeatureSession';
 
 const APTITUDE_SESSION_DEFAULT = {
@@ -10,10 +10,12 @@ const APTITUDE_SESSION_DEFAULT = {
   currentQIdx: 0,
   selectedAns: '',
   score: 0,
-  timeLeft: 60,
+  timeLeft: 600,
   submittedAnswers: [],
   quizFinished: false,
   aiReview: '',
+  questions: [],
+  generating: false,
 };
 
 export default function AptitudePrep({ profile, setProfile }) {
@@ -23,24 +25,25 @@ export default function AptitudePrep({ profile, setProfile }) {
 
   const {
     selectedCategory, quizStarted, currentQIdx, selectedAns,
-    score, timeLeft, submittedAnswers, quizFinished, aiReview,
+    score, timeLeft, submittedAnswers, quizFinished, aiReview, questions, generating,
   } = session;
 
   const handleFinishQuiz = useCallback(async (finalScore = score, answers = submittedAnswers) => {
-    const qList = APTITUDE_QUESTIONS[selectedCategory];
-    const totalQs = answers.length || qList?.length || 1;
+    const totalQs = questions.length || 1;
     const finalScorePct = Math.round((finalScore / totalQs) * 100);
+    const quizKey = `aptitude:${selectedCategory}`;
 
     setSession((prev) => ({ ...prev, quizFinished: true }));
 
+    const { profile: updatedProfile, xpEarned } = recordQuizCompletion(profile, quizKey, finalScorePct, 80);
+
     setProfile({
-      ...profile,
-      points: profile.points + (finalScorePct >= 80 ? 120 : 50),
+      ...updatedProfile,
       aptitudeStats: {
-        ...profile.aptitudeStats,
-        testsTaken: profile.aptitudeStats.testsTaken + 1,
-        [selectedCategory]: Math.round((profile.aptitudeStats[selectedCategory] + finalScorePct) / 2),
-        score: profile.aptitudeStats.score + (finalScorePct >= 80 ? 100 : 50),
+        ...updatedProfile.aptitudeStats,
+        testsTaken: updatedProfile.aptitudeStats.testsTaken + 1,
+        [selectedCategory]: Math.round((updatedProfile.aptitudeStats[selectedCategory] + finalScorePct) / 2),
+        score: updatedProfile.aptitudeStats.score + (xpEarned > 0 ? 100 : 0),
       },
     });
 
@@ -49,7 +52,7 @@ export default function AptitudePrep({ profile, setProfile }) {
       const review = await getAptitudeTestReview({
         profile,
         category: selectedCategory,
-        questions: qList,
+        questions,
         submittedAnswers: answers,
         score: finalScore,
       });
@@ -59,39 +62,52 @@ export default function AptitudePrep({ profile, setProfile }) {
     } finally {
       setLoadingReview(false);
     }
-  }, [profile, score, selectedCategory, submittedAnswers, setProfile, setSession]);
+  }, [profile, score, selectedCategory, submittedAnswers, questions, setProfile, setSession]);
 
   useEffect(() => {
     let timer;
-    if (quizStarted && timeLeft > 0 && !quizFinished) {
+    if (quizStarted && timeLeft > 0 && !quizFinished && questions.length > 0) {
       timer = setInterval(() => {
         setSession((prev) => ({ ...prev, timeLeft: prev.timeLeft - 1 }));
       }, 1000);
-    } else if (timeLeft === 0 && quizStarted && !quizFinished) {
+    } else if (timeLeft === 0 && quizStarted && !quizFinished && questions.length > 0) {
       handleFinishQuiz();
     }
     return () => clearInterval(timer);
-  }, [quizStarted, timeLeft, quizFinished, handleFinishQuiz, setSession]);
+  }, [quizStarted, timeLeft, quizFinished, handleFinishQuiz, setSession, questions.length]);
 
-  const handleStartQuiz = (category) => {
+  const handleStartQuiz = async (category) => {
     setSession({
       ...APTITUDE_SESSION_DEFAULT,
       selectedCategory: category,
       quizStarted: true,
+      generating: true,
     });
+
+    try {
+      const generated = await generateAptitudeQuestions({ category, count: 10 });
+      setSession((prev) => ({
+        ...prev,
+        questions: generated,
+        generating: false,
+      }));
+    } catch (err) {
+      console.error('Aptitude generation failed:', err);
+      alert('Failed to generate aptitude questions. Check OpenRouter API key.');
+      setSession(APTITUDE_SESSION_DEFAULT);
+    }
   };
 
   const handleNextQuestion = () => {
-    const qList = APTITUDE_QUESTIONS[selectedCategory];
-    const currentQuestion = qList[currentQIdx];
+    const currentQuestion = questions[currentQIdx];
     const isCorrect = selectedAns === currentQuestion.answer;
     const newAnswers = [
       ...submittedAnswers,
-      { questionId: currentQuestion.id, answer: selectedAns, isCorrect, explanation: currentQuestion.explanation },
+      { questionId: currentQuestion.id, answer: selectedAns, isCorrect },
     ];
     const nextScore = isCorrect ? score + 1 : score;
 
-    if (currentQIdx + 1 < qList.length) {
+    if (currentQIdx + 1 < questions.length) {
       setSession((prev) => ({
         ...prev,
         submittedAnswers: newAnswers,
@@ -105,13 +121,11 @@ export default function AptitudePrep({ profile, setProfile }) {
     }
   };
 
-  const questions = selectedCategory ? APTITUDE_QUESTIONS[selectedCategory] : [];
-
   return (
     <div className="space-y-8 animate-fade-in">
       <div>
         <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white">Aptitude Preparation</h1>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">Timed tests with OpenRouter AI performance review at the end.</p>
+        <p className="text-slate-600 dark:text-slate-400 mt-1">AI generates 10 fresh questions per category using OpenRouter.</p>
       </div>
 
       {!quizStarted ? (
@@ -124,8 +138,9 @@ export default function AptitudePrep({ profile, setProfile }) {
             <div key={cat.id} className="glass-card p-6 flex flex-col justify-between">
               <div className="text-3xl mb-3">{cat.icon}</div>
               <h3 className="text-base font-bold">{cat.label}</h3>
+              <p className="text-xs text-slate-500 mt-1">10 AI questions · 10 min timer</p>
               <button onClick={() => handleStartQuiz(cat.id)} className="mt-6 w-full py-2 bg-brand-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5">
-                Start Timed Test <Play className="w-3.5 h-3.5 fill-current" />
+                Start Test <Play className="w-3.5 h-3.5 fill-current" />
               </button>
             </div>
           ))}
@@ -134,20 +149,24 @@ export default function AptitudePrep({ profile, setProfile }) {
         <div className="glass-card p-6 md:p-8 space-y-6 border border-brand-500/15">
           <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
             <span className="text-xs font-bold uppercase text-slate-400">{selectedCategory} TEST</span>
-            {!quizFinished && (
+            {!quizFinished && !generating && (
               <div className="flex items-center gap-1 text-xs text-rose-500 font-bold">
-                <Timer className="w-4 h-4" /> {timeLeft}s
+                <Timer className="w-4 h-4" /> {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
               </div>
             )}
           </div>
 
-          {!quizFinished ? (
+          {generating ? (
+            <p className="text-sm flex items-center gap-2 text-slate-500">
+              <RefreshCw className="w-4 h-4 animate-spin" /> Generating questions...
+            </p>
+          ) : !quizFinished ? (
             <div className="space-y-6">
-              <p className="text-base font-bold">Q {currentQIdx + 1}/{questions.length}: {questions[currentQIdx].question}</p>
+              <p className="text-base font-bold">Q {currentQIdx + 1}/{questions.length}: {questions[currentQIdx]?.question}</p>
               <div className="space-y-2">
-                {questions[currentQIdx].options.map((opt, idx) => (
+                {questions[currentQIdx]?.options.map((opt, idx) => (
                   <button key={idx} onClick={() => setSession((prev) => ({ ...prev, selectedAns: opt }))}
-                    className={`w-full text-left px-4 py-3 rounded-xl border text-xs font-semibold ${
+                    className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-semibold ${
                       selectedAns === opt ? 'bg-brand-500 border-brand-500 text-white' : 'border-slate-200 dark:border-slate-800'
                     }`}>
                     {opt}
@@ -167,24 +186,12 @@ export default function AptitudePrep({ profile, setProfile }) {
               {loadingReview ? (
                 <p className="text-xs flex items-center gap-2 text-slate-500"><RefreshCw className="w-3 h-3 animate-spin" /> Generating AI review...</p>
               ) : aiReview ? (
-                <div className="p-4 bg-brand-500/5 rounded-xl text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                <div className="p-4 bg-brand-500/5 rounded-xl text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                   <strong>AI Coach Review:</strong> {aiReview}
                 </div>
               ) : null}
-              <div className="space-y-4">
-                {questions.map((q, idx) => {
-                  const ansObj = submittedAnswers[idx] || { isCorrect: false, answer: 'Not Answered' };
-                  return (
-                    <div key={q.id} className="p-4 bg-slate-100/50 dark:bg-slate-900/30 rounded-2xl text-xs">
-                      <p className="font-bold">{q.question}</p>
-                      <p className="text-emerald-500 mt-1">Correct: {q.answer}</p>
-                      <p className={ansObj.isCorrect ? 'text-emerald-500' : 'text-rose-500'}>Selected: {ansObj.answer}</p>
-                    </div>
-                  );
-                })}
-              </div>
               <button onClick={() => setSession({ ...APTITUDE_SESSION_DEFAULT })} className="bg-brand-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs">
-                Close Review
+                Back to Categories
               </button>
             </div>
           )}

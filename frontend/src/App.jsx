@@ -1,17 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  LayoutDashboard, Award, Target, FileText, Briefcase, TrendingUp,
-  MessageSquare, BookOpen, Code2, Brain, Compass, Users, Sun, Moon, Menu, X, Zap, UserCircle
+  LayoutDashboard, Award, FileText, TrendingUp,
+  MessageSquare, BookOpen, Code2, Brain, Target, Users, Sun, Moon, Menu, X, Zap, UserCircle
 } from 'lucide-react';
 import { INITIAL_PROFILE } from './mock/mockData';
 import { useAuth } from './context/AuthContext';
 import { fetchProfile, saveProfile as saveProfileToSupabase } from './lib/profileService';
+import RocketLoader from './components/RocketLoader';
 
 import Dashboard from './pages/Dashboard';
 import SkillAssessment from './pages/SkillAssessment';
-import CareerGuidance from './pages/CareerGuidance';
 import ResumeAnalyzer from './pages/ResumeAnalyzer';
-import InternshipEngine from './pages/InternshipEngine';
 import PlacementPredictor from './pages/PlacementPredictor';
 import HRInterview from './pages/HRInterview';
 import TechnicalInterview from './pages/TechnicalInterview';
@@ -24,19 +23,13 @@ import OnboardingWizard from './pages/OnboardingWizard';
 import AuthPage from './pages/AuthPage';
 import ProfileSettings from './pages/ProfileSettings';
 
-function LoadingScreen({ label = 'Loading...' }) {
-  return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
-      <p className="text-sm font-semibold text-slate-500 animate-pulse">{label}</p>
-    </div>
-  );
-}
-
 export default function App() {
   const { session, user, loading: authLoading } = useAuth();
+  const userId = session?.user?.id;
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
+  const loadedUserIdRef = useRef(null);
   const [activePage, setActivePage] = useState(() => {
     try {
       return sessionStorage.getItem('careerpilot_active_page') || 'dashboard';
@@ -46,6 +39,12 @@ export default function App() {
   });
   const [theme, setTheme] = useState('dark');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const navigateTo = useCallback((pageId) => {
+    setActivePage(pageId);
+    try { sessionStorage.setItem('careerpilot_active_page', pageId); } catch { /* ignore */ }
+    setSidebarOpen(false);
+  }, []);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -57,24 +56,34 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    if (!session?.user) {
+    if (!userId) {
       setProfile(null);
       setProfileLoading(false);
+      loadedUserIdRef.current = null;
+      return;
+    }
+
+    if (loadedUserIdRef.current === userId && profile) {
       return;
     }
 
     let cancelled = false;
-    setProfileLoading(true);
+    const isFirstLoad = loadedUserIdRef.current !== userId;
+    if (isFirstLoad) setProfileLoading(true);
     setProfileError('');
 
-    fetchProfile(session.user.id, session.user.email ?? '')
+    fetchProfile(userId, session.user.email ?? '')
       .then((data) => {
-        if (!cancelled) setProfile(data);
+        if (!cancelled) {
+          setProfile(data);
+          loadedUserIdRef.current = userId;
+        }
       })
       .catch((err) => {
         if (!cancelled) {
           setProfileError(err.message || 'Failed to load profile.');
           setProfile({ ...INITIAL_PROFILE, email: session.user.email ?? '' });
+          loadedUserIdRef.current = userId;
         }
       })
       .finally(() => {
@@ -82,14 +91,14 @@ export default function App() {
       });
 
     return () => { cancelled = true; };
-  }, [session]);
+  }, [userId, session?.user?.email]);
 
   const updateProfile = async (newProfile) => {
     setProfile(newProfile);
-    if (!session?.user) return newProfile;
+    if (!userId) return newProfile;
 
     try {
-      const saved = await saveProfileToSupabase(session.user.id, newProfile);
+      const saved = await saveProfileToSupabase(userId, newProfile);
       setProfile(saved);
       return saved;
     } catch (err) {
@@ -102,20 +111,20 @@ export default function App() {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  if (authLoading) return <LoadingScreen label="Checking session..." />;
+  if (authLoading) return <RocketLoader label="Checking session..." />;
   if (!session) return <AuthPage />;
-  if (profileLoading || !profile) return <LoadingScreen label="Loading your profile..." />;
+  if ((profileLoading && !profile) || !profile) return <RocketLoader label="Loading your profile..." />;
 
   if (!profile.onboarded) {
     return <OnboardingWizard profile={profile} setProfile={updateProfile} />;
   }
 
+  const displayRole = profile.primaryPriority || profile.targetRole || profile.preferredPaths?.[0] || 'Your career path';
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'assessment', label: 'Skill Assessment', icon: Award },
-    { id: 'guidance', label: 'Career Guidance', icon: Compass },
     { id: 'resume', label: 'Resume Analyzer', icon: FileText },
-    { id: 'internships', label: 'Internships', icon: Briefcase },
     { id: 'predictor', label: 'Placement Predictor', icon: TrendingUp },
     { id: 'hr-interview', label: 'HR Interview', icon: MessageSquare },
     { id: 'tech-interview', label: 'Technical Interview', icon: BookOpen },
@@ -128,13 +137,11 @@ export default function App() {
   ];
 
   const renderActivePage = () => {
-    const props = { profile, setProfile: updateProfile };
+    const props = { profile, setProfile: updateProfile, onNavigate: navigateTo };
     switch (activePage) {
       case 'dashboard': return <Dashboard {...props} />;
       case 'assessment': return <SkillAssessment {...props} />;
-      case 'guidance': return <CareerGuidance {...props} />;
       case 'resume': return <ResumeAnalyzer {...props} />;
-      case 'internships': return <InternshipEngine {...props} />;
       case 'predictor': return <PlacementPredictor {...props} />;
       case 'hr-interview': return <HRInterview {...props} />;
       case 'tech-interview': return <TechnicalInterview {...props} />;
@@ -181,11 +188,7 @@ export default function App() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => {
-                    setActivePage(item.id);
-                    try { sessionStorage.setItem('careerpilot_active_page', item.id); } catch { /* ignore */ }
-                    setSidebarOpen(false);
-                  }}
+                  onClick={() => navigateTo(item.id)}
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                     isActive
                       ? 'bg-gradient-to-r from-brand-600 to-indigo-500 text-white shadow-sm shadow-brand-500/10'
@@ -202,7 +205,7 @@ export default function App() {
 
         <button
           type="button"
-          onClick={() => setActivePage('profile')}
+          onClick={() => navigateTo('profile')}
           className="border-t border-slate-200 dark:border-slate-800/60 pt-4 mt-4 flex items-center gap-3 w-full text-left hover:opacity-80 transition-opacity"
         >
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-600 to-indigo-500 flex items-center justify-center font-bold text-white text-sm">
@@ -210,7 +213,7 @@ export default function App() {
           </div>
           <div className="min-w-0">
             <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{profile.name || 'Student Name'}</p>
-            <p className="text-[10px] text-slate-400 truncate">{user?.email || profile.email}</p>
+            <p className="text-[10px] text-slate-400 truncate">{displayRole}</p>
           </div>
         </button>
       </aside>

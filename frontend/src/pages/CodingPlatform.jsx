@@ -1,22 +1,27 @@
-import React, { useState, useMemo } from 'react';
-import { Code2, Play, Terminal, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
-import { CODING_CHALLENGES } from '../mock/mockData';
-import { reviewCodingSolution } from '../lib/aiService';
+import React, { useState } from 'react';
+import { Code2, Play, Terminal, CheckCircle, XCircle, RefreshCw, HelpCircle } from 'lucide-react';
+import { generateCodingChallenges, reviewCodingSolution } from '../lib/aiService';
+import { recordCodingSolve } from '../lib/quizRewards';
 import { getProfileKey, useFeatureSession } from '../hooks/useFeatureSession';
 
 function getTemplate(challenge, lang) {
-  if (lang === 'Java') return challenge.templateJava;
-  if (lang === 'Python') return challenge.templatePython;
-  return challenge.templateJS;
+  if (lang === 'Java') return challenge.templateJava || challenge.solution || '';
+  if (lang === 'Python') return challenge.templatePython || challenge.solution || '';
+  return challenge.templateJS || challenge.solution || '';
 }
 
 const CODING_SESSION_DEFAULT = {
-  challengeId: CODING_CHALLENGES[0].id,
+  phase: 'difficulty',
+  difficulty: null,
+  challenges: [],
+  challengeIndex: 0,
   selectedLanguage: 'Java',
-  editorCode: getTemplate(CODING_CHALLENGES[0], 'Java'),
+  editorCode: '',
   runLogs: [],
   testResult: null,
   aiFeedback: '',
+  showHelp: false,
+  generating: false,
 };
 
 export default function CodingPlatform({ profile, setProfile }) {
@@ -24,19 +29,43 @@ export default function CodingPlatform({ profile, setProfile }) {
   const [session, setSession] = useFeatureSession('coding', profileKey, CODING_SESSION_DEFAULT);
   const [compiling, setCompiling] = useState(false);
 
-  const selectedChallenge = useMemo(
-    () => CODING_CHALLENGES.find((c) => c.id === session.challengeId) || CODING_CHALLENGES[0],
-    [session.challengeId]
-  );
+  const selectedChallenge = session.challenges[session.challengeIndex];
 
-  const handleSelectChallenge = (challenge) => {
+  const selectDifficulty = async (difficulty) => {
+    setSession({ ...CODING_SESSION_DEFAULT, difficulty, generating: true });
+    try {
+      const challenges = await generateCodingChallenges({
+        difficulty,
+        count: 10,
+        language: 'Java',
+      });
+      const first = challenges[0];
+      setSession({
+        ...CODING_SESSION_DEFAULT,
+        phase: 'coding',
+        difficulty,
+        challenges,
+        challengeIndex: 0,
+        selectedLanguage: 'Java',
+        editorCode: getTemplate(first, 'Java'),
+      });
+    } catch (err) {
+      console.error('Challenge generation failed:', err);
+      alert('Failed to generate challenges. Check OpenRouter API key.');
+      setSession(CODING_SESSION_DEFAULT);
+    }
+  };
+
+  const handleSelectChallenge = (index) => {
+    const challenge = session.challenges[index];
     setSession((prev) => ({
       ...prev,
-      challengeId: challenge.id,
+      challengeIndex: index,
       editorCode: getTemplate(challenge, prev.selectedLanguage),
       testResult: null,
       runLogs: [],
       aiFeedback: '',
+      showHelp: false,
     }));
   };
 
@@ -48,13 +77,14 @@ export default function CodingPlatform({ profile, setProfile }) {
       editorCode: getTemplate(selectedChallenge, lang),
       testResult: null,
       runLogs: [],
-      aiFeedback: '',
+      showHelp: false,
     }));
   };
 
   const handleRunCode = async () => {
+    if (!selectedChallenge) return;
     setCompiling(true);
-    setSession((prev) => ({ ...prev, runLogs: ['Sending code to OpenRouter AI judge...'] }));
+    setSession((prev) => ({ ...prev, runLogs: ['Sending code to OpenRouter AI judge...'], showHelp: false }));
 
     try {
       const result = await reviewCodingSolution({
@@ -71,30 +101,31 @@ export default function CodingPlatform({ profile, setProfile }) {
       }));
 
       if (result.passed) {
-        const isEasy = selectedChallenge.difficulty === 'Easy';
-        const isMed = selectedChallenge.difficulty === 'Medium';
+        const challengeKey = `${session.difficulty}:${selectedChallenge.id}`;
+        const isEasy = session.difficulty === 'Easy';
+        const isMed = session.difficulty === 'Medium';
+        const { profile: updated, xpEarned } = recordCodingSolve(profile, challengeKey, 200);
+
         const newEasy = isEasy ? profile.codingStats.solvedEasy + 1 : profile.codingStats.solvedEasy;
         const newMed = isMed ? profile.codingStats.solvedMedium + 1 : profile.codingStats.solvedMedium;
         const newHard = !isEasy && !isMed ? profile.codingStats.solvedHard + 1 : profile.codingStats.solvedHard;
 
         setProfile({
-          ...profile,
-          points: profile.points + 200,
+          ...updated,
           codingStats: {
-            ...profile.codingStats,
-            solvedEasy: Math.min(profile.codingStats.totalEasy, newEasy),
-            solvedMedium: Math.min(profile.codingStats.totalMedium, newMed),
-            solvedHard: Math.min(profile.codingStats.totalHard, newHard),
-            score: profile.codingStats.score + 100,
+            ...updated.codingStats,
+            solvedEasy: Math.min(updated.codingStats.totalEasy, newEasy),
+            solvedMedium: Math.min(updated.codingStats.totalMedium, newMed),
+            solvedHard: Math.min(updated.codingStats.totalHard, newHard),
+            score: updated.codingStats.score + (xpEarned > 0 ? 100 : 0),
           },
         });
       }
     } catch (err) {
-      console.error('Code review failed:', err);
       setSession((prev) => ({
         ...prev,
         testResult: 'failed',
-        runLogs: ['AI review failed. Check OpenRouter API key in .env'],
+        runLogs: ['AI review failed. Check OpenRouter API key.'],
         aiFeedback: err.message,
       }));
     } finally {
@@ -102,106 +133,163 @@ export default function CodingPlatform({ profile, setProfile }) {
     }
   };
 
+  if (session.phase === 'difficulty' || session.generating) {
+    return (
+      <div className="space-y-8 animate-fade-in">
+        <div>
+          <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+            <Code2 className="w-8 h-8 text-brand-500" /> Coding Practice Platform
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Choose a difficulty — AI generates 10 fresh challenges with 3 test cases each.</p>
+        </div>
+        {session.generating ? (
+          <p className="text-sm flex items-center gap-2 text-slate-500">
+            <RefreshCw className="w-4 h-4 animate-spin" /> Generating challenges...
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {['Easy', 'Medium', 'Hard'].map((d) => (
+              <button
+                key={d}
+                onClick={() => selectDifficulty(d)}
+                className="glass-card p-8 text-center hover:border-brand-500 transition-colors"
+              >
+                <div className="text-2xl font-extrabold text-brand-500">{d}</div>
+                <p className="text-xs text-slate-500 mt-2">10 AI-generated problems</p>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 animate-fade-in">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-            <Code2 className="w-8 h-8 text-brand-500" /> Coding Practice Platform
+            <Code2 className="w-8 h-8 text-brand-500" /> {session.difficulty} Challenges
           </h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
-            Submit solutions for OpenRouter AI code review against test cases.
+            Problem {session.challengeIndex + 1} of {session.challenges.length}
           </p>
         </div>
-        <select
-          value={session.selectedLanguage}
-          onChange={handleLanguageChange}
-          className="glass-input text-xs font-semibold py-1.5"
-        >
-          <option value="Java">Java SE 8</option>
-          <option value="Python">Python 3.x</option>
-          <option value="JavaScript">JavaScript ES6</option>
-        </select>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setSession(CODING_SESSION_DEFAULT)}
+            className="text-xs font-bold text-slate-500 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-lg"
+          >
+            Change Difficulty
+          </button>
+          <select value={session.selectedLanguage} onChange={handleLanguageChange} className="glass-input text-xs font-semibold py-1.5">
+            <option value="Java">Java</option>
+            <option value="Python">Python</option>
+            <option value="JavaScript">JavaScript</option>
+          </select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-4 space-y-6">
-          <div className="glass-card p-6 space-y-4">
-            <h2 className="text-lg font-bold">Coding Challenges</h2>
-            <div className="space-y-3 max-h-[480px] overflow-y-auto">
-              {CODING_CHALLENGES.map((challenge) => (
-                <button
-                  key={challenge.id}
-                  onClick={() => handleSelectChallenge(challenge)}
-                  className={`w-full text-left p-4 rounded-2xl border text-xs transition-all ${
-                    session.challengeId === challenge.id
-                      ? 'border-brand-500 bg-brand-500/5 ring-1 ring-brand-500'
-                      : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30'
-                  }`}
-                >
-                  <div className="font-bold text-slate-800 dark:text-white">{challenge.title}</div>
-                  <div className="text-slate-500">{challenge.difficulty}</div>
-                </button>
-              ))}
-            </div>
+          <div className="glass-card p-6 space-y-4 max-h-[520px] overflow-y-auto">
+            <h2 className="text-lg font-bold">Challenges</h2>
+            {session.challenges.map((c, i) => (
+              <button
+                key={c.id}
+                onClick={() => handleSelectChallenge(i)}
+                className={`w-full text-left p-3 rounded-xl border text-xs ${
+                  session.challengeIndex === i ? 'border-brand-500 bg-brand-500/5' : 'border-slate-200 dark:border-slate-800'
+                }`}
+              >
+                <div className="font-bold">{c.title}</div>
+              </button>
+            ))}
           </div>
         </div>
 
         <div className="lg:col-span-8 space-y-6">
-          <div className="glass-card p-6 space-y-3">
-            <h2 className="text-lg font-bold">{selectedChallenge.title}</h2>
-            <p className="text-xs text-slate-600 dark:text-slate-300">{selectedChallenge.description}</p>
-          </div>
-
-          <div className="glass-card overflow-hidden">
-            <div className="bg-slate-50 dark:bg-slate-900/60 px-4 py-2.5 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
-              <span className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
-                <Terminal className="w-4 h-4 text-brand-500" /> Editor
-              </span>
-              <button
-                onClick={handleRunCode}
-                disabled={compiling}
-                className="bg-brand-600 hover:bg-brand-500 text-white px-4 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1"
-              >
-                {compiling ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-                {compiling ? 'AI Reviewing...' : 'Run & Review'}
-              </button>
-            </div>
-            <textarea
-              value={session.editorCode}
-              onChange={(e) => setSession((prev) => ({ ...prev, editorCode: e.target.value }))}
-              className="w-full bg-slate-950 text-emerald-400 font-mono text-xs p-4 min-h-[300px] focus:outline-none resize-none"
-              spellCheck="false"
-            />
-          </div>
-
-          <div className="glass-card p-6 space-y-4">
-            <h3 className="text-xs font-bold text-slate-400 uppercase">AI Review Console</h3>
-            <div className="bg-slate-900 p-4 rounded-xl font-mono text-xs text-slate-300 min-h-[100px]">
-              {session.runLogs.length === 0 ? (
-                <span className="text-slate-500 italic">Run your code to get OpenRouter AI feedback.</span>
-              ) : (
-                session.runLogs.map((log, index) => (
-                  <div key={index} className={log.includes('SUCCESS') || log.includes('passed') ? 'text-emerald-400' : log.includes('FAIL') ? 'text-rose-400' : ''}>
-                    {log}
-                  </div>
-                ))
-              )}
-            </div>
-            {session.testResult && (
-              <div className={`p-4 rounded-xl border flex gap-2.5 text-xs ${
-                session.testResult === 'passed'
-                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
-                  : 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400'
-              }`}>
-                {session.testResult === 'passed' ? <CheckCircle className="w-5 h-5 shrink-0" /> : <XCircle className="w-5 h-5 shrink-0" />}
-                <div>
-                  <strong>{session.testResult === 'passed' ? 'All Test Cases Passed!' : 'Solution needs work.'}</strong>
-                  {session.aiFeedback && <p className="mt-0.5 opacity-90">{session.aiFeedback}</p>}
+          {selectedChallenge && (
+            <>
+              <div className="glass-card p-6 space-y-3">
+                <h2 className="text-lg font-bold">{selectedChallenge.title}</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300">{selectedChallenge.description}</p>
+                <div className="text-xs text-slate-500">
+                  <strong>Test cases:</strong>
+                  <ul className="mt-1 space-y-1">
+                    {selectedChallenge.testCases?.map((tc, i) => (
+                      <li key={i}>Input: {tc.input} → Expected: {tc.expected}</li>
+                    ))}
+                  </ul>
                 </div>
               </div>
-            )}
-          </div>
+
+              <div className="glass-card overflow-hidden">
+                <div className="bg-slate-50 dark:bg-slate-900/60 px-4 py-2.5 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
+                  <span className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                    <Terminal className="w-4 h-4 text-brand-500" /> Editor
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSession((prev) => ({ ...prev, showHelp: !prev.showHelp }))}
+                      className="text-xs font-bold text-slate-500 hover:text-brand-600 flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5" /> Need help?
+                    </button>
+                    <button
+                      onClick={handleRunCode}
+                      disabled={compiling}
+                      className="bg-brand-600 hover:bg-brand-500 text-white px-4 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1"
+                    >
+                      {compiling ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                      Run & Review
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  value={session.editorCode}
+                  onChange={(e) => setSession((prev) => ({ ...prev, editorCode: e.target.value }))}
+                  className="w-full bg-slate-950 text-emerald-400 font-mono text-sm p-4 min-h-[280px] focus:outline-none resize-none"
+                  spellCheck="false"
+                />
+              </div>
+
+              {session.showHelp && selectedChallenge.solution && (
+                <div className="glass-card p-4 border border-amber-500/20 bg-amber-500/5">
+                  <p className="text-[10px] font-bold text-amber-600 uppercase mb-2">Reference solution</p>
+                  <pre className="text-xs font-mono text-slate-600 dark:text-slate-300 overflow-x-auto whitespace-pre-wrap">
+                    {selectedChallenge.solution}
+                  </pre>
+                </div>
+              )}
+
+              <div className="glass-card p-6 space-y-4">
+                <h3 className="text-xs font-bold text-slate-400 uppercase">AI Review Console</h3>
+                <div className="bg-slate-900 p-4 rounded-xl font-mono text-xs text-slate-300 min-h-[80px]">
+                  {session.runLogs.length === 0 ? (
+                    <span className="text-slate-500 italic">Run your code to get AI feedback.</span>
+                  ) : (
+                    session.runLogs.map((log, index) => <div key={index}>{log}</div>)
+                  )}
+                </div>
+                {session.testResult && (
+                  <div className={`p-4 rounded-xl border flex gap-2.5 text-sm ${
+                    session.testResult === 'passed'
+                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                      : 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400'
+                  }`}>
+                    {session.testResult === 'passed' ? <CheckCircle className="w-5 h-5 shrink-0" /> : <XCircle className="w-5 h-5 shrink-0" />}
+                    <div>
+                      <strong>{session.testResult === 'passed' ? 'All test cases passed!' : 'Not all test cases passed.'}</strong>
+                      {session.aiFeedback && <p className="mt-0.5 opacity-90">{session.aiFeedback}</p>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

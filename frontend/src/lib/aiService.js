@@ -123,8 +123,8 @@ Readiness: ${ctx.profile.profileCompletionPercent}%`;
 
   const raw = await callOpenRouter({ systemPrompt, userMessage, temperature: 0.4 });
   return parseAIJson(raw, {
-    missingSkills: ['React', 'Spring Boot'],
-    recommendation: 'Focus on full-stack integration projects.',
+    missingSkills: [],
+    recommendation: 'Add skills and take Technical Interview quizzes to refine this analysis.',
     currentStrengths: ctx.profile.skills.slice(0, 5),
   });
 }
@@ -165,14 +165,17 @@ Internships: ${JSON.stringify(internships.map((j) => ({ id: j.id, role: j.role, 
   return Array.isArray(parsed.rankings) ? parsed.rankings : [];
 }
 
-export async function generateRoadmapWithAI({ profile }) {
+export async function generateRoadmapWithAI({ profile, courseFocus = null }) {
   const ctx = buildStudentContext(profile);
-  const systemPrompt = `Create a 4-month learning roadmap for a student targeting ${ctx.profile.targetRole}.
+  const focus = courseFocus || profile.primaryPriority || profile.targetRole || profile.preferredPaths?.[0] || 'Computer Science';
+  const systemPrompt = `Create a 4-month learning roadmap for a student focusing on: ${focus}.
 ${JSON_ONLY}
 Schema: {"months":[{"month":"Month N","title":"...","desc":"...","topics":[{"name":"...","status":false}]}]}`;
 
-  const userMessage = `Skills: ${ctx.profile.skills.join(', ') || 'none'}
-Missing gaps to address. Keep 4 months, 3 topics each.`;
+  const userMessage = `Primary course/goal: ${focus}
+Skills: ${ctx.profile.skills.join(', ') || 'none'}
+Branch: ${profile.branch || 'Computer Science'}
+Keep 4 months, 3-4 topics each. Tailor to the chosen focus — not generic full-stack unless that is the focus.`;
 
   const raw = await callOpenRouter({ systemPrompt, userMessage, temperature: 0.5 });
   const parsed = parseAIJson(raw);
@@ -193,6 +196,83 @@ Paths: ${JSON.stringify(paths.map((p) => ({ id: p.id, name: p.name, description:
   const raw = await callOpenRouter({ systemPrompt, userMessage, temperature: 0.4 });
   const parsed = parseAIJson(raw, { paths: [] });
   return Array.isArray(parsed.paths) ? parsed.paths : [];
+}
+
+export async function generateMCQQuestions({ topic, count = 10, profile = null }) {
+  const role = profile?.targetRole || profile?.primaryPriority || 'software engineering';
+  const systemPrompt = `You are a technical interviewer creating ${count} multiple-choice questions for campus placements.
+${JSON_ONLY}
+Schema: {"questions":[{"question":"string","options":["A","B","C","D"],"answer":"must exactly match one option string"}]}
+Rules: exactly ${count} questions. answer must be one of the 4 options verbatim. No explanations field.`;
+
+  const userMessage = `Topic: ${topic}
+Student target role: ${role}
+Difficulty: mixed campus-placement level`;
+
+  const raw = await callOpenRouter({ systemPrompt, userMessage, temperature: 0.7 });
+  const parsed = parseAIJson(raw, { questions: [] });
+  const questions = (parsed.questions || [])
+    .filter((q) => q.question && Array.isArray(q.options) && q.options.length === 4 && q.answer)
+    .slice(0, count)
+    .map((q, i) => ({
+      id: `${topic}-${i}`,
+      q: q.question,
+      options: q.options,
+      a: q.answer,
+    }));
+  if (questions.length < 3) throw new Error('AI returned too few valid questions');
+  return questions;
+}
+
+export async function generateCodingChallenges({ difficulty, count = 10, language = 'Java' }) {
+  const systemPrompt = `Generate ${count} unique ${difficulty} coding challenges for ${language}.
+${JSON_ONLY}
+Schema: {"challenges":[{"id":"unique-id","title":"...","description":"problem statement","difficulty":"${difficulty}","testCases":[{"input":"...","expected":"..."}],"solution":"working ${language} solution passing all test cases"}]}
+Each challenge must have exactly 3 testCases.`;
+
+  const raw = await callOpenRouter({
+    systemPrompt,
+    userMessage: `Generate ${count} ${difficulty} challenges. Vary topics: arrays, strings, math, logic.`,
+    temperature: 0.8,
+  });
+  const parsed = parseAIJson(raw, { challenges: [] });
+  const challenges = (parsed.challenges || []).slice(0, count).map((c, i) => ({
+    id: c.id || `ai-${difficulty.toLowerCase()}-${i}`,
+    title: c.title || `Challenge ${i + 1}`,
+    description: c.description || '',
+    difficulty,
+    testCases: (c.testCases || []).slice(0, 3),
+    solution: c.solution || '',
+    templateJava: c.solution || `public class Solution {\n    // Write your code\n}`,
+    templatePython: c.solution || `class Solution:\n    pass`,
+    templateJS: c.solution || `function solve() {\n    // Write your code\n}`,
+  }));
+  if (challenges.length < 1) throw new Error('AI returned no coding challenges');
+  return challenges;
+}
+
+export async function generateAptitudeQuestions({ category, count = 10 }) {
+  const labels = {
+    quantitative: 'Quantitative Aptitude (math, percentages, ratios, time-speed-distance)',
+    logical: 'Logical Reasoning (patterns, puzzles, deductions)',
+    verbal: 'Verbal Ability (synonyms, antonyms, reading comprehension)',
+  };
+  const systemPrompt = `Generate ${count} ${labels[category] || category} MCQ questions for placement exams.
+${JSON_ONLY}
+Schema: {"questions":[{"question":"...","options":["A","B","C","D"],"answer":"exact option text"}]}`;
+
+  const raw = await callOpenRouter({
+    systemPrompt,
+    userMessage: `Category: ${category}. Campus placement difficulty.`,
+    temperature: 0.75,
+  });
+  const parsed = parseAIJson(raw, { questions: [] });
+  return (parsed.questions || []).slice(0, count).map((q, i) => ({
+    id: `${category}-${i}`,
+    question: q.question,
+    options: q.options,
+    answer: q.answer,
+  }));
 }
 
 export async function getAptitudeTestReview({ profile, category, questions, submittedAnswers, score }) {
