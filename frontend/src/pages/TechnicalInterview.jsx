@@ -38,7 +38,18 @@ export default function TechnicalInterview({ profile, setProfile }) {
     });
 
     try {
-      const generated = await generateMCQQuestions({ topic, count: 10, profile });
+      const cacheKey = `careerpilot_quiz_${profileKey}_${topic}`;
+      let generated = null;
+      try {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) generated = JSON.parse(cached);
+      } catch { /* ignore */ }
+
+      if (!generated?.length) {
+        generated = await generateMCQQuestions({ topic, count: 10, profile });
+        try { sessionStorage.setItem(cacheKey, JSON.stringify(generated)); } catch { /* ignore */ }
+      }
+
       setSession((prev) => ({
         ...prev,
         questions: generated,
@@ -46,7 +57,7 @@ export default function TechnicalInterview({ profile, setProfile }) {
       }));
     } catch (err) {
       console.error('Quiz generation failed:', err);
-      setLoadError('Failed to generate questions. Check your OpenRouter API key.');
+      setLoadError(err.message || 'Failed to load questions. Check OpenRouter API key in .env.local');
       setSession(TECH_SESSION_DEFAULT);
     }
   };
@@ -102,7 +113,7 @@ export default function TechnicalInterview({ profile, setProfile }) {
       <div>
         <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white">Technical Interview Module</h1>
         <p className="text-slate-600 dark:text-slate-400 mt-1">
-          AI-generated MCQ quizzes (10 questions each) using the same OpenRouter model as the career chatbot.
+          Click <strong>Start Technical Quiz</strong> on a topic — questions load after you start (AI + instant fallback bank). First load may take 15–45s on large models.
         </p>
       </div>
 
@@ -141,7 +152,7 @@ export default function TechnicalInterview({ profile, setProfile }) {
             <div className="glass-card p-6 md:p-8 space-y-6 border border-brand-500/15">
               {generating ? (
                 <p className="text-sm flex items-center gap-2 text-slate-500">
-                  <RefreshCw className="w-4 h-4 animate-spin" /> Generating {selectedTopic} questions via AI...
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Loading {selectedTopic} questions… (AI generating, or using built-in bank)
                 </p>
               ) : !quizComplete ? (
                 <div className="space-y-6">

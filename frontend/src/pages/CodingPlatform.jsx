@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Code2, Play, Terminal, CheckCircle, XCircle, RefreshCw, HelpCircle } from 'lucide-react';
-import { generateCodingChallenges, reviewCodingSolution } from '../lib/aiService';
+import { generateCodingChallenges, generateCodingSolution, reviewCodingSolution } from '../lib/aiService';
 import { recordCodingSolve } from '../lib/quizRewards';
 import { getProfileKey, useFeatureSession } from '../hooks/useFeatureSession';
 
@@ -28,6 +28,7 @@ export default function CodingPlatform({ profile, setProfile }) {
   const profileKey = getProfileKey(profile);
   const [session, setSession] = useFeatureSession('coding', profileKey, CODING_SESSION_DEFAULT);
   const [compiling, setCompiling] = useState(false);
+  const [loadingHelp, setLoadingHelp] = useState(false);
 
   const selectedChallenge = session.challenges[session.challengeIndex];
 
@@ -36,7 +37,7 @@ export default function CodingPlatform({ profile, setProfile }) {
     try {
       const challenges = await generateCodingChallenges({
         difficulty,
-        count: 10,
+        count: 5,
         language: 'Java',
       });
       const first = challenges[0];
@@ -140,7 +141,7 @@ export default function CodingPlatform({ profile, setProfile }) {
           <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
             <Code2 className="w-8 h-8 text-brand-500" /> Coding Practice Platform
           </h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">Choose a difficulty — AI generates 10 fresh challenges with 3 test cases each.</p>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Choose a difficulty — AI generates 5 challenges (faster). Solutions load only when you click Need help.</p>
         </div>
         {session.generating ? (
           <p className="text-sm flex items-center gap-2 text-slate-500">
@@ -155,7 +156,7 @@ export default function CodingPlatform({ profile, setProfile }) {
                 className="glass-card p-8 text-center hover:border-brand-500 transition-colors"
               >
                 <div className="text-2xl font-extrabold text-brand-500">{d}</div>
-                <p className="text-xs text-slate-500 mt-2">10 AI-generated problems</p>
+                <p className="text-xs text-slate-500 mt-2">5 AI-generated problems</p>
               </button>
             ))}
           </div>
@@ -233,10 +234,37 @@ export default function CodingPlatform({ profile, setProfile }) {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setSession((prev) => ({ ...prev, showHelp: !prev.showHelp }))}
-                      className="text-xs font-bold text-slate-500 hover:text-brand-600 flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700"
+                      disabled={loadingHelp}
+                      onClick={async () => {
+                        if (session.showHelp && selectedChallenge.solution) {
+                          setSession((prev) => ({ ...prev, showHelp: false }));
+                          return;
+                        }
+                        setLoadingHelp(true);
+                        try {
+                          let solution = selectedChallenge.solution;
+                          if (!solution) {
+                            solution = await generateCodingSolution({
+                              challenge: selectedChallenge,
+                              language: session.selectedLanguage,
+                            });
+                            const updated = session.challenges.map((c, i) =>
+                              i === session.challengeIndex ? { ...c, solution } : c
+                            );
+                            setSession((prev) => ({ ...prev, challenges: updated, showHelp: true }));
+                          } else {
+                            setSession((prev) => ({ ...prev, showHelp: true }));
+                          }
+                        } catch (err) {
+                          alert('Could not load solution. Check OpenRouter API key.');
+                        } finally {
+                          setLoadingHelp(false);
+                        }
+                      }}
+                      className="text-xs font-bold text-slate-500 hover:text-brand-600 flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-50"
                     >
-                      <HelpCircle className="w-3.5 h-3.5" /> Need help?
+                      {loadingHelp ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <HelpCircle className="w-3.5 h-3.5" />}
+                      {loadingHelp ? 'Loading…' : 'Need help?'}
                     </button>
                     <button
                       onClick={handleRunCode}

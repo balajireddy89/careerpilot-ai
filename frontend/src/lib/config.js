@@ -12,6 +12,8 @@ export const config = {
   supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || '',
   openRouterApiKey: import.meta.env.VITE_OPENROUTER_API_KEY?.trim() || '',
   openRouterModel: import.meta.env.VITE_OPENROUTER_MODEL?.trim() || 'gpt-oss-120b',
+  /** Faster model for bulk quiz/challenge generation (optional — falls back to openRouterModel) */
+  openRouterFastModel: import.meta.env.VITE_OPENROUTER_FAST_MODEL?.trim() || '',
 };
 
 export const isSupabaseConfigured = Boolean(config.supabaseUrl && config.supabaseAnonKey);

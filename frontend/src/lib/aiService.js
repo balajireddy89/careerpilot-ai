@@ -1,6 +1,10 @@
 import { callOpenRouter } from './openRouter';
 import { buildStudentContext } from './chatContext';
-import { parseAIJson, clamp } from './aiUtils';
+import { parseAIJson, clamp, normalizeMcqAnswer, shuffleArray } from './aiUtils';
+import { getFallbackQuestions } from './questionBank';
+import { config } from './config';
+
+const fastModel = () => config.openRouterFastModel || config.openRouterModel;
 
 const JSON_ONLY = 'Respond with valid JSON only. No markdown fences or extra text.';
 
@@ -200,55 +204,93 @@ Paths: ${JSON.stringify(paths.map((p) => ({ id: p.id, name: p.name, description:
 
 export async function generateMCQQuestions({ topic, count = 10, profile = null }) {
   const role = profile?.targetRole || profile?.primaryPriority || 'software engineering';
-  const systemPrompt = `You are a technical interviewer creating ${count} multiple-choice questions for campus placements.
+  const batch = Math.min(count, 5);
+
+  try {
+    const systemPrompt = `Create ${batch} MCQ questions for topic: ${topic}.
 ${JSON_ONLY}
-Schema: {"questions":[{"question":"string","options":["A","B","C","D"],"answer":"must exactly match one option string"}]}
-Rules: exactly ${count} questions. answer must be one of the 4 options verbatim. No explanations field.`;
+Schema: {"questions":[{"question":"string","options":["opt1","opt2","opt3","opt4"],"answer":"exact text of correct option"}]}`;
 
-  const userMessage = `Topic: ${topic}
-Student target role: ${role}
-Difficulty: mixed campus-placement level`;
+    const raw = await callOpenRouter({
+      systemPrompt,
+      userMessage: `Topic: ${topic}. Role: ${role}. Campus placement level.`,
+      temperature: 0.5,
+      model: fastModel(),
+      maxTokens: 2048,
+      timeoutMs: 45000,
+    });
 
-  const raw = await callOpenRouter({ systemPrompt, userMessage, temperature: 0.7 });
-  const parsed = parseAIJson(raw, { questions: [] });
-  const questions = (parsed.questions || [])
-    .filter((q) => q.question && Array.isArray(q.options) && q.options.length === 4 && q.answer)
-    .slice(0, count)
-    .map((q, i) => ({
-      id: `${topic}-${i}`,
-      q: q.question,
-      options: q.options,
-      a: q.answer,
-    }));
-  if (questions.length < 3) throw new Error('AI returned too few valid questions');
-  return questions;
+    const parsed = parseAIJson(raw, { questions: [] });
+    const aiQuestions = (parsed.questions || [])
+      .filter((q) => q.question && Array.isArray(q.options) && q.options.length >= 4)
+      .map((q, i) => ({
+        id: `ai-${topic}-${i}`,
+        q: q.question,
+        options: q.options.slice(0, 4),
+        a: normalizeMcqAnswer(q.options, q.answer),
+      }));
+
+    const fallback = getFallbackQuestions(topic, count);
+    const merged = shuffleArray([...aiQuestions, ...fallback]).slice(0, count);
+    if (merged.length >= 3) return merged;
+  } catch (err) {
+    console.warn('AI MCQ generation failed, using fallback bank:', err);
+  }
+
+  return getFallbackQuestions(topic, count);
 }
 
-export async function generateCodingChallenges({ difficulty, count = 10, language = 'Java' }) {
-  const systemPrompt = `Generate ${count} unique ${difficulty} coding challenges for ${language}.
+export async function generateCodingChallenges({ difficulty, count = 5, language = 'Java' }) {
+  const systemPrompt = `Generate ${count} ${difficulty} coding problems for ${language}. Do NOT include solutions.
 ${JSON_ONLY}
-Schema: {"challenges":[{"id":"unique-id","title":"...","description":"problem statement","difficulty":"${difficulty}","testCases":[{"input":"...","expected":"..."}],"solution":"working ${language} solution passing all test cases"}]}
-Each challenge must have exactly 3 testCases.`;
+Schema: {"challenges":[{"id":"slug","title":"short title","description":"2-3 sentence problem","testCases":[{"input":"...","expected":"..."}]}]}
+Exactly 3 testCases per challenge. Keep descriptions concise.`;
 
-  const raw = await callOpenRouter({
+  try {
+    const raw = await callOpenRouter({
+      systemPrompt,
+      userMessage: `Difficulty: ${difficulty}. Topics: arrays, strings, math.`,
+      temperature: 0.6,
+      model: fastModel(),
+      maxTokens: 3072,
+      timeoutMs: 60000,
+    });
+
+    const parsed = parseAIJson(raw, { challenges: [] });
+    const challenges = (parsed.challenges || []).slice(0, count).map((c, i) => ({
+      id: c.id || `ai-${difficulty.toLowerCase()}-${i}`,
+      title: c.title || `Challenge ${i + 1}`,
+      description: c.description || '',
+      difficulty,
+      testCases: (c.testCases || []).slice(0, 3),
+      solution: '',
+      templateJava: `public class Solution {\n    // ${c.title || 'Solve the problem'}\n}`,
+      templatePython: `class Solution:\n    # ${c.title || 'Solve the problem'}\n    pass`,
+      templateJS: `function solve(input) {\n    // ${c.title || 'Solve the problem'}\n}`,
+    }));
+
+    if (challenges.length >= 1) return challenges;
+  } catch (err) {
+    console.warn('AI coding generation failed:', err);
+  }
+
+  throw new Error('Could not generate coding challenges. Check OpenRouter API key or try again.');
+}
+
+export async function generateCodingSolution({ challenge, language = 'Java' }) {
+  const systemPrompt = `Write a correct ${language} solution for this coding problem. Return code only, no markdown fences.`;
+  const userMessage = `Title: ${challenge.title}
+Description: ${challenge.description}
+Test cases: ${JSON.stringify(challenge.testCases)}`;
+
+  return callOpenRouter({
     systemPrompt,
-    userMessage: `Generate ${count} ${difficulty} challenges. Vary topics: arrays, strings, math, logic.`,
-    temperature: 0.8,
+    userMessage,
+    temperature: 0.2,
+    model: fastModel(),
+    maxTokens: 1500,
+    timeoutMs: 45000,
   });
-  const parsed = parseAIJson(raw, { challenges: [] });
-  const challenges = (parsed.challenges || []).slice(0, count).map((c, i) => ({
-    id: c.id || `ai-${difficulty.toLowerCase()}-${i}`,
-    title: c.title || `Challenge ${i + 1}`,
-    description: c.description || '',
-    difficulty,
-    testCases: (c.testCases || []).slice(0, 3),
-    solution: c.solution || '',
-    templateJava: c.solution || `public class Solution {\n    // Write your code\n}`,
-    templatePython: c.solution || `class Solution:\n    pass`,
-    templateJS: c.solution || `function solve() {\n    // Write your code\n}`,
-  }));
-  if (challenges.length < 1) throw new Error('AI returned no coding challenges');
-  return challenges;
 }
 
 export async function generateAptitudeQuestions({ category, count = 10 }) {
@@ -264,7 +306,10 @@ Schema: {"questions":[{"question":"...","options":["A","B","C","D"],"answer":"ex
   const raw = await callOpenRouter({
     systemPrompt,
     userMessage: `Category: ${category}. Campus placement difficulty.`,
-    temperature: 0.75,
+    temperature: 0.6,
+    model: fastModel(),
+    maxTokens: 2048,
+    timeoutMs: 45000,
   });
   const parsed = parseAIJson(raw, { questions: [] });
   return (parsed.questions || []).slice(0, count).map((q, i) => ({

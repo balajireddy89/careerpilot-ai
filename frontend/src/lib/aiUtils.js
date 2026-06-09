@@ -30,6 +30,33 @@ export function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+/** Match AI answer letter or text to one of the four options */
+export function normalizeMcqAnswer(options, answer) {
+  if (!Array.isArray(options) || options.length === 0) return answer;
+  const opts = options.map((o) => String(o).trim());
+  const ans = String(answer ?? '').trim();
+  const exact = opts.find((o) => o === ans);
+  if (exact) return exact;
+  const ci = opts.find((o) => o.toLowerCase() === ans.toLowerCase());
+  if (ci) return ci;
+  const letter = ans.toUpperCase();
+  if (/^[A-D]$/.test(letter)) {
+    const idx = letter.charCodeAt(0) - 65;
+    if (opts[idx]) return opts[idx];
+  }
+  const partial = opts.find((o) => o.toLowerCase().includes(ans.toLowerCase()) || ans.toLowerCase().includes(o.toLowerCase()));
+  return partial || opts[0];
+}
+
+export function shuffleArray(arr) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
 export async function extractTextFromFile(file) {
   const ext = file.name.split('.').pop()?.toLowerCase();
 
