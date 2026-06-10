@@ -29,6 +29,7 @@ export function mapRowToAdminStudent(row) {
   return {
     id: row.id,
     userId: row.user_id,
+    isAdmin: profile.isAdmin,
     name: profile.name || 'Unnamed',
     email: profile.email,
     college: profile.college,
@@ -66,6 +67,18 @@ export function computeAdminStats(students) {
     : 0;
 
   return { total, onboarded, avgReadiness, avgCompletion };
+}
+
+export async function setStudentAdminStatus(userId, isAdmin) {
+  const { data, error } = await supabase
+    .from('student_profiles')
+    .update({ is_admin: isAdmin })
+    .eq('user_id', userId)
+    .select('user_id, email, is_admin')
+    .single();
+
+  if (error) throw error;
+  return data;
 }
 
 export function exportStudentsCsv(students, type = 'placement') {

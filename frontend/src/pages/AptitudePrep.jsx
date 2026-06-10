@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Timer, Play, RefreshCw, ChevronRight } from 'lucide-react';
 import BackButton from '../components/BackButton';
-import { generateAptitudeQuestions, getAptitudeTestReview } from '../lib/aiService';
+import {
+  fetchCategoryNames,
+  fetchMcqForQuiz,
+  mapMcqToAptitude,
+  APTITUDE_DEFAULTS,
+} from '../lib/questionBankService';
 import { recordQuizCompletion } from '../lib/quizRewards';
 import { getProfileKey, useFeatureSession } from '../hooks/useFeatureSession';
 
@@ -14,20 +19,30 @@ const APTITUDE_SESSION_DEFAULT = {
   timeLeft: 600,
   submittedAnswers: [],
   quizFinished: false,
-  aiReview: '',
   questions: [],
-  generating: false,
+  loading: false,
+};
+
+const CATEGORY_META = {
+  quantitative: { label: 'Quantitative Aptitude', icon: '📊' },
+  logical: { label: 'Logical Reasoning', icon: '🧠' },
+  verbal: { label: 'Verbal Ability', icon: '✍️' },
 };
 
 export default function AptitudePrep({ profile, setProfile }) {
   const profileKey = getProfileKey(profile);
   const [session, setSession] = useFeatureSession('aptitude', profileKey, APTITUDE_SESSION_DEFAULT);
-  const [loadingReview, setLoadingReview] = useState(false);
+  const [categories, setCategories] = useState(APTITUDE_DEFAULTS.map((c) => c.id));
+  const [loadError, setLoadError] = useState('');
 
   const {
     selectedCategory, quizStarted, currentQIdx, selectedAns,
-    score, timeLeft, submittedAnswers, quizFinished, aiReview, questions, generating,
+    score, timeLeft, submittedAnswers, quizFinished, questions, loading,
   } = session;
+
+  useEffect(() => {
+    fetchCategoryNames('aptitude', APTITUDE_DEFAULTS.map((c) => c.id)).then(setCategories).catch(() => {});
+  }, []);
 
   const handleFinishQuiz = useCallback(async (finalScore = score, answers = submittedAnswers) => {
     const totalQs = questions.length || 1;
@@ -47,22 +62,6 @@ export default function AptitudePrep({ profile, setProfile }) {
         score: updatedProfile.aptitudeStats.score + (xpEarned > 0 ? 100 : 0),
       },
     });
-
-    setLoadingReview(true);
-    try {
-      const review = await getAptitudeTestReview({
-        profile,
-        category: selectedCategory,
-        questions,
-        submittedAnswers: answers,
-        score: finalScore,
-      });
-      setSession((prev) => ({ ...prev, aiReview: review }));
-    } catch (err) {
-      console.warn('Aptitude AI review failed:', err);
-    } finally {
-      setLoadingReview(false);
-    }
   }, [profile, score, selectedCategory, submittedAnswers, questions, setProfile, setSession]);
 
   useEffect(() => {
@@ -78,23 +77,29 @@ export default function AptitudePrep({ profile, setProfile }) {
   }, [quizStarted, timeLeft, quizFinished, handleFinishQuiz, setSession, questions.length]);
 
   const handleStartQuiz = async (category) => {
+    setLoadError('');
     setSession({
       ...APTITUDE_SESSION_DEFAULT,
       selectedCategory: category,
       quizStarted: true,
-      generating: true,
+      loading: true,
     });
 
     try {
-      const generated = await generateAptitudeQuestions({ category, count: 10 });
+      const rows = await fetchMcqForQuiz('aptitude', category, 10);
+      if (!rows.length) {
+        setLoadError(`No questions for "${category}" yet. Admin can import JSON in Admin Panel → Aptitude Prep.`);
+        setSession(APTITUDE_SESSION_DEFAULT);
+        return;
+      }
       setSession((prev) => ({
         ...prev,
-        questions: generated,
-        generating: false,
+        questions: rows.map(mapMcqToAptitude),
+        loading: false,
       }));
     } catch (err) {
-      console.error('Aptitude generation failed:', err);
-      alert('Failed to generate aptitude questions. Check OpenRouter API key.');
+      console.error('Aptitude load failed:', err);
+      setLoadError(err.message || 'Failed to load questions.');
       setSession(APTITUDE_SESSION_DEFAULT);
     }
   };
@@ -105,6 +110,7 @@ export default function AptitudePrep({ profile, setProfile }) {
       if (!confirmed) return;
     }
     setSession({ ...APTITUDE_SESSION_DEFAULT });
+    setLoadError('');
   };
 
   const handleNextQuestion = () => {
@@ -134,77 +140,76 @@ export default function AptitudePrep({ profile, setProfile }) {
     <div className="space-y-8 animate-fade-in">
       <div>
         <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white">Aptitude Preparation</h1>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">AI generates 10 fresh questions per category using OpenRouter.</p>
+        <p className="text-slate-600 dark:text-slate-400 mt-1">Admin-curated aptitude bank — 10 questions per category, 10 min timer.</p>
       </div>
+
+      {loadError && (
+        <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-600">{loadError}</div>
+      )}
 
       {!quizStarted ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            { id: 'quantitative', label: 'Quantitative Aptitude', icon: '📊' },
-            { id: 'logical', label: 'Logical Reasoning', icon: '🧠' },
-            { id: 'verbal', label: 'Verbal Ability', icon: '✍️' },
-          ].map((cat) => (
-            <div key={cat.id} className="glass-card p-6 flex flex-col justify-between">
-              <div className="text-3xl mb-3">{cat.icon}</div>
-              <h3 className="text-base font-bold">{cat.label}</h3>
-              <p className="text-xs text-slate-500 mt-1">10 AI questions · 10 min timer</p>
-              <button onClick={() => handleStartQuiz(cat.id)} className="mt-6 w-full py-2 bg-brand-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5">
-                Start Test <Play className="w-3.5 h-3.5 fill-current" />
-              </button>
-            </div>
-          ))}
+          {categories.map((catId) => {
+            const meta = CATEGORY_META[catId] || { label: catId, icon: '📝' };
+            return (
+              <div key={catId} className="glass-card p-6 flex flex-col justify-between">
+                <div className="text-3xl mb-3">{meta.icon}</div>
+                <h3 className="text-base font-bold">{meta.label}</h3>
+                <p className="text-xs text-slate-500 mt-1">10 questions · 10 min timer</p>
+                <button onClick={() => handleStartQuiz(catId)} className="mt-6 w-full py-2 bg-brand-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5">
+                  Start Test <Play className="w-3.5 h-3.5 fill-current" />
+                </button>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="space-y-4">
           <BackButton onClick={handleBackToCategories} label="Back to Categories" />
           <div className="glass-card p-6 md:p-8 space-y-6 border border-brand-500/15">
-          <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
-            <span className="text-xs font-bold uppercase text-slate-400">{selectedCategory} TEST</span>
-            {!quizFinished && !generating && (
-              <div className="flex items-center gap-1 text-xs text-rose-500 font-bold">
-                <Timer className="w-4 h-4" /> {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+              <span className="text-xs font-bold uppercase text-slate-400">{selectedCategory} TEST</span>
+              {!quizFinished && !loading && (
+                <div className="flex items-center gap-1 text-xs text-rose-500 font-bold">
+                  <Timer className="w-4 h-4" /> {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
+                </div>
+              )}
+            </div>
+
+            {loading ? (
+              <p className="text-sm flex items-center gap-2 text-slate-500">
+                <RefreshCw className="w-4 h-4 animate-spin" /> Loading questions...
+              </p>
+            ) : !quizFinished ? (
+              <div className="space-y-6">
+                <p className="text-base font-bold">Q {currentQIdx + 1}/{questions.length}: {questions[currentQIdx]?.question}</p>
+                <div className="space-y-2">
+                  {questions[currentQIdx]?.options.map((opt, idx) => (
+                    <button key={idx} onClick={() => setSession((prev) => ({ ...prev, selectedAns: opt }))}
+                      className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-semibold ${
+                        selectedAns === opt ? 'bg-brand-500 border-brand-500 text-white' : 'border-slate-200 dark:border-slate-800'
+                      }`}>
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={handleNextQuestion} disabled={!selectedAns} className="bg-brand-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs disabled:opacity-50 flex items-center gap-1 ml-auto">
+                  Next Question <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="text-center">
+                  <div className="text-4xl mb-2">🏆</div>
+                  <h3 className="text-lg font-bold">Score: {score}/{questions.length}</h3>
+                  <p className="text-xs text-slate-500 mt-2">
+                    {Math.round((score / questions.length) * 100)}% — XP awarded once per category at 70%+
+                  </p>
+                </div>
+                <BackButton onClick={handleBackToCategories} label="Back to Categories" />
               </div>
             )}
           </div>
-
-          {generating ? (
-            <p className="text-sm flex items-center gap-2 text-slate-500">
-              <RefreshCw className="w-4 h-4 animate-spin" /> Generating questions...
-            </p>
-          ) : !quizFinished ? (
-            <div className="space-y-6">
-              <p className="text-base font-bold">Q {currentQIdx + 1}/{questions.length}: {questions[currentQIdx]?.question}</p>
-              <div className="space-y-2">
-                {questions[currentQIdx]?.options.map((opt, idx) => (
-                  <button key={idx} onClick={() => setSession((prev) => ({ ...prev, selectedAns: opt }))}
-                    className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-semibold ${
-                      selectedAns === opt ? 'bg-brand-500 border-brand-500 text-white' : 'border-slate-200 dark:border-slate-800'
-                    }`}>
-                    {opt}
-                  </button>
-                ))}
-              </div>
-              <button onClick={handleNextQuestion} disabled={!selectedAns} className="bg-brand-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs disabled:opacity-50 flex items-center gap-1 ml-auto">
-                Next Question <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="text-center">
-                <div className="text-4xl mb-2">🏆</div>
-                <h3 className="text-lg font-bold">Score: {score}/{questions.length}</h3>
-              </div>
-              {loadingReview ? (
-                <p className="text-xs flex items-center gap-2 text-slate-500"><RefreshCw className="w-3 h-3 animate-spin" /> Generating AI review...</p>
-              ) : aiReview ? (
-                <div className="p-4 bg-brand-500/5 rounded-xl text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                  <strong>AI Coach Review:</strong> {aiReview}
-                </div>
-              ) : null}
-              <BackButton onClick={handleBackToCategories} label="Back to Categories" />
-            </div>
-          )}
-        </div>
         </div>
       )}
     </div>

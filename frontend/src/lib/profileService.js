@@ -21,6 +21,7 @@ function rowToProfile(row) {
     learningRoadmap: row.learning_roadmap ?? [],
     quizRewards: row.quiz_rewards ?? {},
     codingRewards: row.coding_rewards ?? {},
+    roadmapRewards: row.roadmap_rewards ?? {},
     aims: row.aims ?? [],
     preferredPaths: row.preferred_paths ?? [],
     skills: row.skills ?? [],
@@ -86,6 +87,7 @@ function profileToRow(profile, userId) {
     learning_roadmap: profile.learningRoadmap ?? [],
     quiz_rewards: profile.quizRewards ?? {},
     coding_rewards: profile.codingRewards ?? {},
+    roadmap_rewards: profile.roadmapRewards ?? {},
     aims: profile.aims ?? [],
     preferred_paths: profile.preferredPaths ?? [],
     skills: profile.skills ?? [],
@@ -130,7 +132,27 @@ export async function fetchProfile(userId, userEmail = '') {
     return prepareProfile(created);
   }
 
-  const profile = prepareProfile(data);
+  let profile = prepareProfile(data);
+
+  const adminEmail = 'reddy.kuppila2006@gmail.com';
+  if (
+    userEmail &&
+    userEmail.toLowerCase() === adminEmail.toLowerCase() &&
+    !profile.isAdmin
+  ) {
+    try {
+      const { data: promoted } = await supabase
+        .from('student_profiles')
+        .update({ is_admin: true })
+        .eq('user_id', userId)
+        .select('*')
+        .single();
+      if (promoted) profile = prepareProfile(promoted);
+    } catch (promoteErr) {
+      console.warn('Auto-admin promotion failed:', promoteErr);
+    }
+  }
+
   const needsSync =
     profile.profileCompletion !== (data.profile_completion ?? 0) ||
     data.resume_details?.fileName === 'Manual_Setup.pdf';

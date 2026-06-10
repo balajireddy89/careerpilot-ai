@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Users, BookOpen, Settings, BarChart2, Plus, Download, CheckCircle, RefreshCw, ShieldAlert } from 'lucide-react';
-import { fetchAllStudents, computeAdminStats, exportStudentsCsv } from '../lib/adminService';
+import {
+  Users, BookOpen, Download, CheckCircle, RefreshCw, ShieldAlert,
+  Code2, Brain, Map, Shield,
+} from 'lucide-react';
+import { fetchAllStudents, computeAdminStats, exportStudentsCsv, setStudentAdminStatus } from '../lib/adminService';
+import { TECH_INTERVIEW_TOPICS } from '../lib/csSkillsCatalog';
+import { APTITUDE_DEFAULTS } from '../lib/questionBankService';
+import QuestionBankEditor from '../components/admin/QuestionBankEditor';
+import RoadmapEditor from '../components/admin/RoadmapEditor';
+
+const PRIMARY_ADMIN_EMAIL = 'reddy.kuppila2006@gmail.com';
 
 export default function AdminPanel({ profile }) {
   const [activeSubTab, setActiveSubTab] = useState('students');
@@ -9,15 +18,7 @@ export default function AdminPanel({ profile }) {
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState('');
-
-  const [newQuestionTopic, setNewQuestionTopic] = useState('Java');
-  const [newQuestionText, setNewQuestionText] = useState('');
-  const [newOptA, setNewOptA] = useState('');
-  const [newOptB, setNewOptB] = useState('');
-  const [newOptC, setNewOptC] = useState('');
-  const [newOptD, setNewOptD] = useState('');
-  const [correctOption, setCorrectOption] = useState('');
-  const [formSuccess, setFormSuccess] = useState(false);
+  const [adminMsg, setAdminMsg] = useState('');
 
   const stats = computeAdminStats(students);
 
@@ -36,26 +37,22 @@ export default function AdminPanel({ profile }) {
   };
 
   useEffect(() => {
-    if (profile.isAdmin) {
-      loadStudents();
-    } else {
-      setLoading(false);
-    }
+    if (profile.isAdmin) loadStudents();
+    else setLoading(false);
   }, [profile.isAdmin]);
 
-  const handleCreateQuestion = (e) => {
-    e.preventDefault();
-    if (!newQuestionText.trim() || !newOptA || !newOptB || !correctOption) return;
-    setFormSuccess(true);
-    setTimeout(() => {
-      setFormSuccess(false);
-      setNewQuestionText('');
-      setNewOptA('');
-      setNewOptB('');
-      setNewOptC('');
-      setNewOptD('');
-      setCorrectOption('');
-    }, 2500);
+  const handleToggleAdmin = async (student) => {
+    const next = !student.isAdmin;
+    const label = next ? 'grant admin access to' : 'revoke admin access from';
+    if (!window.confirm(`Are you sure you want to ${label} ${student.email}?`)) return;
+    try {
+      await setStudentAdminStatus(student.userId, next);
+      setAdminMsg(`${student.email} is now ${next ? 'an admin' : 'a regular user'}.`);
+      setTimeout(() => setAdminMsg(''), 3000);
+      await loadStudents();
+    } catch (err) {
+      alert(err.message || 'Failed to update admin status.');
+    }
   };
 
   const handleExport = async (type) => {
@@ -79,18 +76,28 @@ export default function AdminPanel({ profile }) {
           <ShieldAlert className="w-12 h-12 text-amber-500 mx-auto" />
           <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">Admin Access Required</h1>
           <p className="text-sm text-slate-500 max-w-md mx-auto">
-            Run <code className="text-brand-500">supabase/admin_migration.sql</code> in Supabase SQL Editor,
-            then set your account as admin:
+            Run migrations in Supabase SQL Editor, then sign in with the admin account.
           </p>
-          <pre className="text-xs bg-slate-900 text-slate-200 p-4 rounded-xl text-left max-w-lg mx-auto overflow-x-auto">
-{`update public.student_profiles
-set is_admin = true
-where email = 'your@email.com';`}
-          </pre>
+          <div className="text-left max-w-lg mx-auto space-y-2 text-xs text-slate-500">
+            <p><strong>1.</strong> Run <code className="text-brand-500">supabase/schema.sql</code></p>
+            <p><strong>2.</strong> Run <code className="text-brand-500">supabase/admin_migration.sql</code></p>
+            <p><strong>3.</strong> Run <code className="text-brand-500">supabase/question_bank_migration.sql</code></p>
+            <p><strong>4.</strong> Sign up / log in as <code className="text-brand-500">{PRIMARY_ADMIN_EMAIL}</code></p>
+            <p><strong>5.</strong> Open sidebar → <strong>Admin Panel</strong></p>
+          </div>
         </div>
       </div>
     );
   }
+
+  const tabs = [
+    { id: 'students', label: 'Students', icon: Users },
+    { id: 'technical', label: 'Technical Interview', icon: BookOpen },
+    { id: 'coding', label: 'Coding Practice', icon: Code2 },
+    { id: 'aptitude', label: 'Aptitude Prep', icon: Brain },
+    { id: 'roadmap', label: 'Learning Roadmap', icon: Map },
+    { id: 'reports', label: 'Reports', icon: Download },
+  ];
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -98,7 +105,7 @@ where email = 'your@email.com';`}
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white">Admin Management Portal</h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
-            Live data from Supabase — all registered student profiles.
+            Manage students, question banks, and roadmaps — synced live with the student app via Supabase.
           </p>
         </div>
         <button
@@ -111,62 +118,42 @@ where email = 'your@email.com';`}
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="glass-card p-5 flex items-center justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Registered</span>
-            <div className="text-2xl font-bold mt-1">{stats.total} Students</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Students', value: stats.total, color: 'text-brand-500' },
+          { label: 'Onboarded', value: stats.onboarded, color: 'text-blue-500' },
+          { label: 'Mean Readiness', value: `${stats.avgReadiness}%`, color: 'text-emerald-500' },
+          { label: 'Avg Profile', value: `${stats.avgCompletion}%`, color: 'text-emerald-500' },
+        ].map((s) => (
+          <div key={s.label} className="glass-card p-4">
+            <span className="text-[10px] font-semibold text-slate-500 uppercase">{s.label}</span>
+            <div className={`text-xl font-bold mt-1 ${s.color}`}>{s.value}</div>
           </div>
-          <Users className="w-8 h-8 text-brand-500 opacity-60" />
-        </div>
-        <div className="glass-card p-5 flex items-center justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Onboarded</span>
-            <div className="text-2xl font-bold mt-1 text-blue-500">{stats.onboarded}</div>
-          </div>
-          <BarChart2 className="w-8 h-8 text-blue-500 opacity-60" />
-        </div>
-        <div className="glass-card p-5 flex items-center justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Mean Readiness</span>
-            <div className="text-2xl font-bold mt-1 text-emerald-500">{stats.avgReadiness}%</div>
-          </div>
-          <BarChart2 className="w-8 h-8 text-emerald-500 opacity-60" />
-        </div>
-        <div className="glass-card p-5 flex items-center justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Avg Profile</span>
-            <div className="text-2xl font-bold mt-1 text-emerald-500">{stats.avgCompletion}%</div>
-          </div>
-          <Settings className="w-8 h-8 text-emerald-500 opacity-60" />
-        </div>
+        ))}
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-xs text-red-500 font-semibold">
-          {error}
-        </div>
+        <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-xs text-red-500 font-semibold">{error}</div>
+      )}
+      {adminMsg && (
+        <div className="p-3 rounded-xl bg-emerald-500/10 text-xs text-emerald-600 flex gap-2"><CheckCircle className="w-4 h-4" />{adminMsg}</div>
       )}
 
       <div className="glass-card overflow-hidden">
-        <div className="flex border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/20">
-          {[
-            { id: 'students', label: 'Manage Students', icon: Users },
-            { id: 'assessments', label: 'Configure Assessments', icon: BookOpen },
-            { id: 'reports', label: 'Export & Reporting', icon: Download },
-          ].map((tab) => {
+        <div className="flex border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/20 overflow-x-auto">
+          {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveSubTab(tab.id)}
-                className={`flex-1 py-3 text-center text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-2 ${
+                className={`flex-shrink-0 px-4 py-3 text-center text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-2 ${
                   activeSubTab === tab.id
-                    ? 'border-brand-500 text-brand-500 dark:text-brand-400 bg-white/40 dark:bg-slate-800/20'
-                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    ? 'border-brand-500 text-brand-500 bg-white/40 dark:bg-slate-800/20'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
-                <Icon className="w-4.5 h-4.5" /> {tab.label}
+                <Icon className="w-4 h-4" /> {tab.label}
               </button>
             );
           })}
@@ -175,14 +162,11 @@ where email = 'your@email.com';`}
         <div className="p-6">
           {activeSubTab === 'students' && (
             <div className="space-y-4">
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                Registered profiles from Supabase
-              </div>
-
+              <p className="text-xs text-slate-500">Grant or revoke admin access. Primary admin: {PRIMARY_ADMIN_EMAIL}</p>
               {loading ? (
                 <p className="text-xs text-slate-500 animate-pulse">Loading students...</p>
               ) : students.length === 0 ? (
-                <p className="text-xs text-slate-500">No student profiles found yet.</p>
+                <p className="text-xs text-slate-500">No student profiles found.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
@@ -191,33 +175,32 @@ where email = 'your@email.com';`}
                         <th className="pb-3 font-bold">NAME</th>
                         <th className="pb-3 font-bold">EMAIL</th>
                         <th className="pb-3 font-bold">COLLEGE</th>
-                        <th className="pb-3 font-bold text-center">CODING XP</th>
-                        <th className="pb-3 font-bold text-center">RESUME</th>
-                        <th className="pb-3 font-bold text-center">PROFILE %</th>
-                        <th className="pb-3 font-bold text-right">READINESS</th>
+                        <th className="pb-3 font-bold text-center">XP</th>
+                        <th className="pb-3 font-bold text-center">READINESS</th>
+                        <th className="pb-3 font-bold text-right">ADMIN</th>
                       </tr>
                     </thead>
                     <tbody>
                       {students.map((student) => (
-                        <tr key={student.id} className="border-b border-slate-100 dark:border-slate-800/50 text-slate-700 dark:text-slate-300">
-                          <td className="py-3.5 font-bold text-slate-800 dark:text-white">{student.name}</td>
-                          <td className="py-3.5">{student.email}</td>
-                          <td className="py-3.5">{student.college || '—'}</td>
-                          <td className="py-3.5 text-center font-mono">{student.codingScore} XP</td>
-                          <td className="py-3.5 text-center font-mono">{student.resumeScore}/100</td>
-                          <td className="py-3.5 text-center font-mono">{student.profileCompletion}%</td>
-                          <td className="py-3.5 text-right">
-                            <span
-                              className={`px-2.5 py-1 rounded-full font-bold font-mono ${
-                                student.readiness >= 80
-                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-                                  : student.readiness >= 65
-                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
-                                    : 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400'
+                        <tr key={student.id} className="border-b border-slate-100 dark:border-slate-800/50">
+                          <td className="py-3 font-bold">{student.name}</td>
+                          <td className="py-3">{student.email}</td>
+                          <td className="py-3">{student.college || '—'}</td>
+                          <td className="py-3 text-center font-mono">{student.points}</td>
+                          <td className="py-3 text-center font-mono">{student.readiness}%</td>
+                          <td className="py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleAdmin(student)}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                                student.isAdmin
+                                  ? 'bg-brand-500/15 text-brand-600'
+                                  : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
                               }`}
                             >
-                              {student.readiness}%
-                            </span>
+                              <Shield className="w-3 h-3" />
+                              {student.isAdmin ? 'Admin' : 'Make Admin'}
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -228,120 +211,50 @@ where email = 'your@email.com';`}
             </div>
           )}
 
-          {activeSubTab === 'assessments' && (
-            <form onSubmit={handleCreateQuestion} className="space-y-5 max-w-xl">
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Create New Quiz Question</div>
-              <p className="text-xs text-slate-500">Question bank sync to Supabase coming soon. Form preview only for now.</p>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Topic Module</label>
-                  <select
-                    value={newQuestionTopic}
-                    onChange={(e) => setNewQuestionTopic(e.target.value)}
-                    className="glass-input text-xs py-2 focus:ring-1"
-                  >
-                    <option value="Java">Java</option>
-                    <option value="Python">Python</option>
-                    <option value="Web Development">Web Development</option>
-                    <option value="Databases">Databases</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase">Question Text</label>
-                <textarea
-                  rows="3"
-                  value={newQuestionText}
-                  onChange={(e) => setNewQuestionText(e.target.value)}
-                  className="glass-input text-xs resize-none"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                {['A', 'B', 'C', 'D'].map((opt) => {
-                  const key = `newOpt${opt}`;
-                  const val = { A: newOptA, B: newOptB, C: newOptC, D: newOptD }[opt];
-                  const setter = { A: setNewOptA, B: setNewOptB, C: setNewOptC, D: setNewOptD }[opt];
-                  return (
-                    <div key={opt} className="flex flex-col gap-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase">Option {opt}</label>
-                      <input
-                        type="text"
-                        value={val}
-                        onChange={(e) => setter(e.target.value)}
-                        className="glass-input text-xs py-2"
-                        required={opt === 'A' || opt === 'B'}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase">Correct Answer</label>
-                <input
-                  type="text"
-                  value={correctOption}
-                  onChange={(e) => setCorrectOption(e.target.value)}
-                  className="glass-input text-xs py-2"
-                  required
-                />
-              </div>
-
-              {formSuccess && (
-                <div className="p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-xl text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                  <CheckCircle className="w-4.5 h-4.5" /> Question saved locally (DB sync pending).
-                </div>
-              )}
-
-              <button
-                type="submit"
-                className="bg-brand-600 hover:bg-brand-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-1.5"
-              >
-                <Plus className="w-4 h-4" /> Save Question
-              </button>
-            </form>
+          {activeSubTab === 'technical' && (
+            <QuestionBankEditor
+              moduleType="technical"
+              defaultCategories={TECH_INTERVIEW_TOPICS}
+              title="Import Java/Python/etc. MCQ JSON: { id, question, choices[], answer }. Questions persist until deleted."
+            />
           )}
+
+          {activeSubTab === 'coding' && (
+            <QuestionBankEditor
+              moduleType="coding"
+              isCoding
+              defaultCategories={['General', 'Java', 'Python', 'JavaScript']}
+              title="Import coding JSON: { id, challenge, test_cases: [{ input, output }] }. No AI generation."
+            />
+          )}
+
+          {activeSubTab === 'aptitude' && (
+            <QuestionBankEditor
+              moduleType="aptitude"
+              defaultCategories={APTITUDE_DEFAULTS.map((c) => c.id)}
+              title="Import aptitude JSON: { id, question, choices[], answer } for quantitative, logical, or verbal."
+            />
+          )}
+
+          {activeSubTab === 'roadmap' && <RoadmapEditor />}
 
           {activeSubTab === 'reports' && (
             <div className="space-y-6 max-w-md">
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Batch Reporting Exporters</div>
-              <p className="text-xs text-slate-500 leading-normal">
-                Export live Supabase student data as CSV.
-              </p>
-
+              <p className="text-xs text-slate-500">Export live Supabase student data as CSV.</p>
               <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={() => handleExport('placement')}
-                  disabled={exporting || students.length === 0}
-                  className="p-5 bg-slate-100/50 dark:bg-slate-900/30 hover:bg-brand-500/5 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-2 transition-all disabled:opacity-50"
-                >
-                  <Download className="w-6 h-6 text-brand-500" />
-                  <span className="text-xs font-bold">Placement Metrics</span>
-                </button>
-
-                <button
-                  onClick={() => handleExport('interview')}
-                  disabled={exporting || students.length === 0}
-                  className="p-5 bg-slate-100/50 dark:bg-slate-900/30 hover:bg-brand-500/5 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-2 transition-all disabled:opacity-50"
-                >
-                  <Download className="w-6 h-6 text-brand-500" />
-                  <span className="text-xs font-bold">Interview Metrics</span>
-                </button>
+                {['placement', 'interview'].map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => handleExport(type)}
+                    disabled={exporting || students.length === 0}
+                    className="p-5 bg-slate-100/50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center gap-2 text-xs font-bold disabled:opacity-50"
+                  >
+                    <Download className="w-6 h-6 text-brand-500" />
+                    {type === 'placement' ? 'Placement Metrics' : 'Interview Metrics'}
+                  </button>
+                ))}
               </div>
-
-              {exportMsg && (
-                <div className={`p-4 rounded-xl border text-xs font-semibold ${
-                  exportMsg.includes('Success')
-                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
-                    : 'bg-brand-500/10 border-brand-500/20 text-brand-700 dark:text-brand-400'
-                }`}>
-                  {exportMsg}
-                </div>
-              )}
+              {exportMsg && <p className="text-xs text-brand-600">{exportMsg}</p>}
             </div>
           )}
         </div>

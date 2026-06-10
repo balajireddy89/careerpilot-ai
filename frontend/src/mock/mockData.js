@@ -21,6 +21,7 @@ export const INITIAL_PROFILE = {
   learningRoadmap: [],
   quizRewards: {},
   codingRewards: {},
+  roadmapRewards: {},
   aims: [], // Internship, Placement, Higher Studies, etc.
   preferredPaths: [], // Full Stack Developer, Frontend Developer, etc.
 

@@ -23,5 +23,7 @@ create policy "Admins can view all profiles"
   for select
   using (public.is_admin_user());
 
--- Make yourself admin (replace email with yours):
--- update public.student_profiles set is_admin = true where email = 'reddy.kuppala2006@gmail.com';
+-- Bootstrap primary admin (must have signed up once):
+update public.student_profiles
+set is_admin = true
+where lower(email) = lower('reddy.kuppila2006@gmail.com');
