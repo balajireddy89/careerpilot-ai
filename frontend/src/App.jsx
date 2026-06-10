@@ -39,6 +39,7 @@ export default function App() {
   });
   const [theme, setTheme] = useState('dark');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [hoveredNavId, setHoveredNavId] = useState(null);
 
   const navigateTo = useCallback((pageId) => {
     setActivePage(pageId);
@@ -184,19 +185,28 @@ export default function App() {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activePage === item.id;
+              const isHighlighted = isActive || hoveredNavId === item.id;
 
               return (
                 <button
                   key={item.id}
                   onClick={() => navigateTo(item.id)}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  onMouseEnter={() => setHoveredNavId(item.id)}
+                  onMouseLeave={() => setHoveredNavId(null)}
+                  onFocus={() => setHoveredNavId(item.id)}
+                  onBlur={() => setHoveredNavId(null)}
+                  className={`nav-tab-item w-full flex items-center gap-3 px-3.5 rounded-xl text-xs font-bold origin-left ${
+                    isHighlighted ? 'py-3 scale-[1.04]' : 'py-2.5 scale-100'
+                  } ${
                     isActive
-                      ? 'bg-gradient-to-r from-brand-600 to-indigo-500 text-white shadow-sm shadow-brand-500/10'
+                      ? 'bg-gradient-to-r from-brand-600 to-indigo-500 text-white shadow-md shadow-brand-500/20'
                       : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-900/40'
                   }`}
                 >
-                  <Icon className={`w-4.5 h-4.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                  {item.label}
+                  <Icon className={`shrink-0 transition-all duration-200 ${isHighlighted ? 'w-5 h-5' : 'w-4.5 h-4.5'} ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                  <span className={`transition-all duration-200 ${isHighlighted ? 'text-[13px]' : 'text-xs'}`}>
+                    {item.label}
+                  </span>
                 </button>
               );
             })}

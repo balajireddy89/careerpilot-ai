@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Timer, Play, RefreshCw, ChevronRight, AlertCircle } from 'lucide-react';
+import { Timer, Play, RefreshCw, ChevronRight } from 'lucide-react';
+import BackButton from '../components/BackButton';
 import { generateAptitudeQuestions, getAptitudeTestReview } from '../lib/aiService';
 import { recordQuizCompletion } from '../lib/quizRewards';
 import { getProfileKey, useFeatureSession } from '../hooks/useFeatureSession';
@@ -98,6 +99,14 @@ export default function AptitudePrep({ profile, setProfile }) {
     }
   };
 
+  const handleBackToCategories = () => {
+    if (quizStarted && !quizFinished && questions.length > 0) {
+      const confirmed = window.confirm('Leave this test? Your progress and remaining time will be lost.');
+      if (!confirmed) return;
+    }
+    setSession({ ...APTITUDE_SESSION_DEFAULT });
+  };
+
   const handleNextQuestion = () => {
     const currentQuestion = questions[currentQIdx];
     const isCorrect = selectedAns === currentQuestion.answer;
@@ -146,7 +155,9 @@ export default function AptitudePrep({ profile, setProfile }) {
           ))}
         </div>
       ) : (
-        <div className="glass-card p-6 md:p-8 space-y-6 border border-brand-500/15">
+        <div className="space-y-4">
+          <BackButton onClick={handleBackToCategories} label="Back to Categories" />
+          <div className="glass-card p-6 md:p-8 space-y-6 border border-brand-500/15">
           <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
             <span className="text-xs font-bold uppercase text-slate-400">{selectedCategory} TEST</span>
             {!quizFinished && !generating && (
@@ -190,11 +201,10 @@ export default function AptitudePrep({ profile, setProfile }) {
                   <strong>AI Coach Review:</strong> {aiReview}
                 </div>
               ) : null}
-              <button onClick={() => setSession({ ...APTITUDE_SESSION_DEFAULT })} className="bg-brand-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs">
-                Back to Categories
-              </button>
+              <BackButton onClick={handleBackToCategories} label="Back to Categories" />
             </div>
           )}
+        </div>
         </div>
       )}
     </div>

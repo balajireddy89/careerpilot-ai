@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Code2, Play, Terminal, CheckCircle, XCircle, RefreshCw, HelpCircle } from 'lucide-react';
+import BackButton from '../components/BackButton';
 import { generateCodingChallenges, generateCodingSolution, reviewCodingSolution } from '../lib/aiService';
 import { recordCodingSolve } from '../lib/quizRewards';
 import { getProfileKey, useFeatureSession } from '../hooks/useFeatureSession';
@@ -165,8 +166,21 @@ export default function CodingPlatform({ profile, setProfile }) {
     );
   }
 
+  const handleBackToDifficulty = () => {
+    if (selectedChallenge) {
+      const defaultCode = getTemplate(selectedChallenge, session.selectedLanguage);
+      const hasProgress = session.testResult || session.editorCode !== defaultCode;
+      if (hasProgress) {
+        const confirmed = window.confirm('Leave this challenge? Your code and progress will be lost.');
+        if (!confirmed) return;
+      }
+    }
+    setSession(CODING_SESSION_DEFAULT);
+  };
+
   return (
     <div className="space-y-8 animate-fade-in">
+      <BackButton onClick={handleBackToDifficulty} label="Back to Difficulty" />
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
@@ -177,13 +191,6 @@ export default function CodingPlatform({ profile, setProfile }) {
           </p>
         </div>
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setSession(CODING_SESSION_DEFAULT)}
-            className="text-xs font-bold text-slate-500 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-lg"
-          >
-            Change Difficulty
-          </button>
           <select value={session.selectedLanguage} onChange={handleLanguageChange} className="glass-input text-xs font-semibold py-1.5">
             <option value="Java">Java</option>
             <option value="Python">Python</option>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { BookOpen, Check, Play, ChevronRight, RefreshCw, AlertCircle } from 'lucide-react';
+import BackButton from '../components/BackButton';
 import { TECH_INTERVIEW_TOPICS } from '../lib/csSkillsCatalog';
 import { generateMCQQuestions } from '../lib/aiService';
 import { recordQuizCompletion } from '../lib/quizRewards';
@@ -70,6 +71,15 @@ export default function TechnicalInterview({ profile, setProfile }) {
       score: isCorrect ? prev.score + 1 : prev.score,
       submitted: true,
     }));
+  };
+
+  const handleBackToTopics = () => {
+    if (activeQuiz && !quizComplete && questions.length > 0) {
+      const confirmed = window.confirm('Leave this quiz? Your progress will be lost.');
+      if (!confirmed) return;
+    }
+    setSession({ ...TECH_SESSION_DEFAULT });
+    setLoadError('');
   };
 
   const handleNext = () => {
@@ -147,7 +157,9 @@ export default function TechnicalInterview({ profile, setProfile }) {
           })}
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="space-y-4">
+          <BackButton onClick={handleBackToTopics} label="Back to Topics" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             <div className="glass-card p-6 md:p-8 space-y-6 border border-brand-500/15">
               {generating ? (
@@ -199,9 +211,7 @@ export default function TechnicalInterview({ profile, setProfile }) {
                   <div className="text-3xl font-extrabold text-brand-500">{score}/{questions.length}</div>
                   <h3 className="text-lg font-bold">Technical Test Completed!</h3>
                   <p className="text-sm text-slate-500">{xpMessage}</p>
-                  <button onClick={() => setSession({ ...TECH_SESSION_DEFAULT })} className="px-6 py-2.5 bg-slate-200 dark:bg-slate-800 text-xs font-bold rounded-xl">
-                    Go Back to Topics
-                  </button>
+                  <BackButton onClick={handleBackToTopics} label="Back to Topics" className="mx-auto" />
                 </div>
               )}
             </div>
@@ -211,6 +221,7 @@ export default function TechnicalInterview({ profile, setProfile }) {
             <div className="flex gap-2 items-center"><Check className="w-4 h-4 text-emerald-500" /> XP awarded once per topic (70%+)</div>
             <div className="flex gap-2 items-center"><Check className="w-4 h-4 text-emerald-500" /> Scores sync to Supabase</div>
           </div>
+        </div>
         </div>
       )}
     </div>
