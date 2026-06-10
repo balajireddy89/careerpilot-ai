@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User, Briefcase, Award, UploadCloud, CheckCircle2, ChevronRight, ChevronLeft, Brain } from 'lucide-react';
 import { recalculateReadiness, calculateProfileCompletion, INITIAL_PROFILE } from '../mock/mockData';
-import { generateRoadmapWithAI } from '../lib/aiService';
+import { findRoadmapTemplate } from '../lib/questionBankService';
 import { PREFERRED_COMPANY_OPTIONS } from '../lib/companyOptions';
 
 export default function OnboardingWizard({ profile, setProfile }) {
@@ -143,12 +143,10 @@ export default function OnboardingWizard({ profile, setProfile }) {
 
     let learningRoadmap = [];
     try {
-      learningRoadmap = await generateRoadmapWithAI({
-        profile: { ...profile, ...formData, skills: formData.skills },
-        courseFocus: formData.primaryPriority,
-      });
+      const template = await findRoadmapTemplate(formData.primaryPriority);
+      if (template?.months?.length) learningRoadmap = template.months;
     } catch (err) {
-      console.warn('Roadmap generation during onboarding failed:', err);
+      console.warn('Roadmap template load during onboarding failed:', err);
     }
 
     const completedProfile = {
@@ -178,48 +176,15 @@ export default function OnboardingWizard({ profile, setProfile }) {
       interests: formData.interests,
       weeklyHours: formData.weeklyHours,
       personalityResults: formData.personalityResults,
-      points: profile.points + 500, // XP reward
-      aptitudeStats: {
-        quantitative: finalAptPct,
-        logical: finalAptPct,
-        verbal: finalAptPct,
-        testsTaken: 1,
-        score: finalAptPct * 10
-      },
-      codingStats: {
-        solvedEasy: 0,
-        solvedMedium: 0,
-        solvedHard: 0,
-        totalEasy: 30,
-        totalMedium: 40,
-        totalHard: 20,
-        accuracy: 80,
-        score: formData.codingRating.problemSolving * 150
-      },
-      interviewStats: {
-        hrScore: formData.hrRating.confidence * 10,
-        techScore: 75,
-        communication: formData.hrRating.communication * 10,
-        confidence: formData.hrRating.confidence * 10,
-        sessionsCount: 1
-      },
-      resumeDetails: resumeLoaded
-        ? {
-            fileName: "Resume_Extracted.pdf",
-            uploadedAt: new Date().toLocaleDateString('en-US'),
-            score: 85,
-            atsScore: 85,
-            formattingScore: 80,
-            keywordsScore: 85,
-            detectedKeywords: formData.skills,
-            missingKeywords: ["Spring Boot", "React", "Docker"],
-            suggestions: ["Add project GitHub repositories.", "List certificate credentials in header."]
-          }
-        : { ...INITIAL_PROFILE.resumeDetails }
+      points: profile.points + 500,
+      aptitudeStats: { ...INITIAL_PROFILE.aptitudeStats },
+      codingStats: { ...INITIAL_PROFILE.codingStats },
+      interviewStats: { ...INITIAL_PROFILE.interviewStats },
+      resumeDetails: { ...INITIAL_PROFILE.resumeDetails },
     };
 
     completedProfile.profileCompletion = calculateProfileCompletion(completedProfile);
-    await setProfile(completedProfile);
+    await setProfile(completedProfile, { immediate: true });
   };
 
   return (

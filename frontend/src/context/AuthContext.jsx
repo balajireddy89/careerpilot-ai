@@ -53,8 +53,14 @@ export function AuthProvider({ children }) {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
+    try {
+      Object.keys(sessionStorage).forEach((key) => {
+        if (key.startsWith('careerpilot_')) sessionStorage.removeItem(key);
+      });
+    } catch { /* ignore */ }
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
     if (error) throw error;
+    setSession(null);
   };
 
   const value = useMemo(

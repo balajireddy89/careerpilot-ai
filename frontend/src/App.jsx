@@ -30,6 +30,8 @@ export default function App() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
   const loadedUserIdRef = useRef(null);
+  const saveTimerRef = useRef(null);
+  const pendingProfileRef = useRef(null);
   const [activePage, setActivePage] = useState(() => {
     try {
       return sessionStorage.getItem('careerpilot_active_page') || 'dashboard';
@@ -94,19 +96,39 @@ export default function App() {
     return () => { cancelled = true; };
   }, [userId, session?.user?.email]);
 
-  const updateProfile = async (newProfile) => {
+  const updateProfile = useCallback(async (newProfile, options = {}) => {
+    const { immediate = false } = options;
     setProfile(newProfile);
     if (!userId) return newProfile;
 
-    try {
-      const saved = await saveProfileToSupabase(userId, newProfile);
-      setProfile(saved);
-      return saved;
-    } catch (err) {
-      console.error('Profile save failed:', err);
-      throw err;
+    pendingProfileRef.current = newProfile;
+
+    if (immediate) {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      try {
+        const saved = await saveProfileToSupabase(userId, newProfile);
+        setProfile(saved);
+        return saved;
+      } catch (err) {
+        console.error('Profile save failed:', err);
+        throw err;
+      }
     }
-  };
+
+    return new Promise((resolve) => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(async () => {
+        try {
+          const saved = await saveProfileToSupabase(userId, pendingProfileRef.current);
+          setProfile(saved);
+          resolve(saved);
+        } catch (err) {
+          console.error('Profile save failed:', err);
+          resolve(pendingProfileRef.current);
+        }
+      }, 450);
+    });
+  }, [userId]);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));

@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Search } from 'lucide-react';
 import {
   Users, BookOpen, Download, CheckCircle, RefreshCw, ShieldAlert,
   Code2, Brain, Map, Shield,
@@ -19,8 +20,17 @@ export default function AdminPanel({ profile }) {
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const stats = computeAdminStats(students);
+  const filteredStudents = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return students;
+    return students.filter(
+      (s) => s.name?.toLowerCase().includes(q) || s.email?.toLowerCase().includes(q)
+    );
+  }, [students, searchQuery]);
+
+  const stats = computeAdminStats(filteredStudents.length ? filteredStudents : students);
 
   const loadStudents = async () => {
     setLoading(true);
@@ -162,43 +172,55 @@ export default function AdminPanel({ profile }) {
         <div className="p-6">
           {activeSubTab === 'students' && (
             <div className="space-y-4">
-              <p className="text-xs text-slate-500">Grant or revoke admin access. Primary admin: {PRIMARY_ADMIN_EMAIL}</p>
+              <p className="text-sm text-slate-500">Grant or revoke admin access. Primary admin: {PRIMARY_ADMIN_EMAIL}</p>
+              <div className="relative max-w-md">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by name or email..."
+                  className="glass-input w-full pl-10 py-2.5 text-sm"
+                />
+              </div>
               {loading ? (
-                <p className="text-xs text-slate-500 animate-pulse">Loading students...</p>
-              ) : students.length === 0 ? (
-                <p className="text-xs text-slate-500">No student profiles found.</p>
+                <p className="text-sm text-slate-500 animate-pulse">Loading students...</p>
+              ) : filteredStudents.length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  {students.length === 0 ? 'No student profiles found.' : 'No students match your search.'}
+                </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
+                  <table className="w-full text-left text-sm border-collapse">
                     <thead>
                       <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500">
-                        <th className="pb-3 font-bold">NAME</th>
-                        <th className="pb-3 font-bold">EMAIL</th>
-                        <th className="pb-3 font-bold">COLLEGE</th>
-                        <th className="pb-3 font-bold text-center">XP</th>
-                        <th className="pb-3 font-bold text-center">READINESS</th>
-                        <th className="pb-3 font-bold text-right">ADMIN</th>
+                        <th className="pb-3 pr-4 font-bold text-sm">NAME</th>
+                        <th className="pb-3 pr-4 font-bold text-sm">EMAIL</th>
+                        <th className="pb-3 pr-4 font-bold text-sm">COLLEGE</th>
+                        <th className="pb-3 pr-4 font-bold text-sm text-center">XP</th>
+                        <th className="pb-3 pr-4 font-bold text-sm text-center">READINESS</th>
+                        <th className="pb-3 font-bold text-sm text-right">ADMIN</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {students.map((student) => (
-                        <tr key={student.id} className="border-b border-slate-100 dark:border-slate-800/50">
-                          <td className="py-3 font-bold">{student.name}</td>
-                          <td className="py-3">{student.email}</td>
-                          <td className="py-3">{student.college || '—'}</td>
-                          <td className="py-3 text-center font-mono">{student.points}</td>
-                          <td className="py-3 text-center font-mono">{student.readiness}%</td>
-                          <td className="py-3 text-right">
+                      {filteredStudents.map((student) => (
+                        <tr key={student.id} className="border-b border-slate-100 dark:border-slate-800/50 text-slate-700 dark:text-slate-300">
+                          <td className="py-4 pr-4 font-bold text-base">{student.name}</td>
+                          <td className="py-4 pr-4 text-sm">{student.email}</td>
+                          <td className="py-4 pr-4 text-sm">{student.college || '—'}</td>
+                          <td className="py-4 pr-4 text-center font-mono text-base">{student.points}</td>
+                          <td className="py-4 pr-4 text-center font-mono text-base">{student.readiness}%</td>
+                          <td className="py-4 text-right">
                             <button
                               type="button"
                               onClick={() => handleToggleAdmin(student)}
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${
                                 student.isAdmin
                                   ? 'bg-brand-500/15 text-brand-600'
                                   : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
                               }`}
                             >
-                              <Shield className="w-3 h-3" />
+                              <Shield className="w-3.5 h-3.5" />
                               {student.isAdmin ? 'Admin' : 'Make Admin'}
                             </button>
                           </td>

@@ -61,7 +61,7 @@ export default function ProfileSettings({ profile, setProfile }) {
         ...form,
         targetRole: form.primaryPriority || form.targetRole || form.preferredPaths[0] || '',
         primaryPriority: form.primaryPriority || form.targetRole || form.preferredPaths[0] || '',
-      });
+      }, { immediate: true });
       setSaved(true);
     } finally {
       setSaving(false);

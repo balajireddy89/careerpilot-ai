@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
-import { recalculateReadiness, calculateProfileCompletion, hasUploadedResume, INITIAL_PROFILE } from '../mock/mockData';
+import { calculateProfileCompletion, hasUploadedResume, INITIAL_PROFILE } from '../mock/mockData';
+import { recalculateReadiness } from './placementReadiness';
 
 function mapRowToProfile(row) {
   return {

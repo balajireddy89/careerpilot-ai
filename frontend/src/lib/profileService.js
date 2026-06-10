@@ -135,7 +135,13 @@ export async function fetchProfile(userId, userEmail = '') {
   let profile = prepareProfile(data);
 
   const adminEmail = 'reddy.kuppila2006@gmail.com';
+  const adminCheckedKey = `careerpilot_admin_checked_${userId}`;
+  const alreadyCheckedAdmin = (() => {
+    try { return sessionStorage.getItem(adminCheckedKey) === '1'; } catch { return false; }
+  })();
+
   if (
+    !alreadyCheckedAdmin &&
     userEmail &&
     userEmail.toLowerCase() === adminEmail.toLowerCase() &&
     !profile.isAdmin
@@ -151,18 +157,16 @@ export async function fetchProfile(userId, userEmail = '') {
     } catch (promoteErr) {
       console.warn('Auto-admin promotion failed:', promoteErr);
     }
+    try { sessionStorage.setItem(adminCheckedKey, '1'); } catch { /* ignore */ }
+  } else if (profile.isAdmin || userEmail?.toLowerCase() === adminEmail.toLowerCase()) {
+    try { sessionStorage.setItem(adminCheckedKey, '1'); } catch { /* ignore */ }
   }
 
-  const needsSync =
-    profile.profileCompletion !== (data.profile_completion ?? 0) ||
-    data.resume_details?.fileName === 'Manual_Setup.pdf';
-
-  if (needsSync) {
-    try {
-      await saveProfile(userId, profile);
-    } catch (syncError) {
-      console.warn('Profile sync failed:', syncError);
-    }
+  if (data.resume_details?.fileName === 'Manual_Setup.pdf') {
+    profile = {
+      ...profile,
+      resumeDetails: { ...INITIAL_PROFILE.resumeDetails },
+    };
   }
 
   return profile;

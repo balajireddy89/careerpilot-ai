@@ -340,7 +340,7 @@ export const saveProfile = (profile) => {
   localStorage.setItem("careerpilot_profile", JSON.stringify(profile));
 };
 
-const PLACEHOLDER_RESUME_NAMES = new Set(['', 'Manual_Setup.pdf']);
+const PLACEHOLDER_RESUME_NAMES = new Set(['', 'Manual_Setup.pdf', 'Resume_Extracted.pdf']);
 
 export const hasUploadedResume = (profile) => {
   const fileName = profile?.resumeDetails?.fileName?.trim() ?? '';
@@ -397,28 +397,7 @@ export const getProfileChecklist = (profile) => [
   },
 ];
 
-export const recalculateReadiness = (profile) => {
-  const resumeScore = hasUploadedResume(profile)
-    ? (profile.resumeDetails?.score || 0)
-    : 0;
-  const codingScore = Math.min(100, (profile.codingStats?.score ?? 0) / 10);
-  const aptitudeScore = Math.round(
-    ((profile.aptitudeStats?.quantitative ?? 0)
-      + (profile.aptitudeStats?.logical ?? 0)
-      + (profile.aptitudeStats?.verbal ?? 0)) / 3
-  );
-  const interviewScore = Math.round(
-    ((profile.interviewStats?.hrScore ?? 0) + (profile.interviewStats?.techScore ?? 0)) / 2
-  );
-
-  const score = Math.round(
-    resumeScore * 0.25
-    + codingScore * 0.25
-    + aptitudeScore * 0.20
-    + interviewScore * 0.30
-  );
-  return Math.min(100, Math.max(0, score));
-};
+export { buildPlacementBreakdown, recalculateReadiness } from '../lib/placementReadiness';
 
 const PROFICIENCY_PERCENT = {
   Beginner: 35,
