@@ -2,13 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import {
   Users, BookOpen, Download, CheckCircle, RefreshCw, ShieldAlert,
-  Code2, Brain, Map, Shield,
+  Code2, Brain, Map, Shield, MessageSquare,
 } from 'lucide-react';
 import { fetchAllStudents, computeAdminStats, exportStudentsCsv, setStudentAdminStatus } from '../lib/adminService';
 import { TECH_INTERVIEW_TOPICS } from '../lib/csSkillsCatalog';
 import { APTITUDE_DEFAULTS } from '../lib/questionBankService';
 import QuestionBankEditor from '../components/admin/QuestionBankEditor';
 import RoadmapEditor from '../components/admin/RoadmapEditor';
+import HRQuestionBankEditor from '../components/admin/HRQuestionBankEditor';
 
 const PRIMARY_ADMIN_EMAIL = 'reddy.kuppila2006@gmail.com';
 
@@ -105,6 +106,7 @@ export default function AdminPanel({ profile }) {
     { id: 'technical', label: 'Technical Interview', icon: BookOpen },
     { id: 'coding', label: 'Coding Practice', icon: Code2 },
     { id: 'aptitude', label: 'Aptitude Prep', icon: Brain },
+    { id: 'hr-questions', label: 'HR Questions', icon: MessageSquare },
     { id: 'roadmap', label: 'Learning Roadmap', icon: Map },
     { id: 'reports', label: 'Reports', icon: Download },
   ];
@@ -259,6 +261,8 @@ export default function AdminPanel({ profile }) {
           )}
 
           {activeSubTab === 'roadmap' && <RoadmapEditor />}
+
+          {activeSubTab === 'hr-questions' && <HRQuestionBankEditor />}
 
           {activeSubTab === 'reports' && (
             <div className="space-y-6 max-w-md">

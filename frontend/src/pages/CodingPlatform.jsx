@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Code2, Play, Terminal, CheckCircle, XCircle, RefreshCw, HelpCircle } from 'lucide-react';
+import Editor from '@monaco-editor/react';
 import BackButton from '../components/BackButton';
 import { fetchCodingChallenges } from '../lib/questionBankService';
 import { mapDbChallengeToUi, getTemplate, getSolution, reviewCodeLocally } from '../lib/codingRunner';
@@ -18,6 +19,15 @@ const CODING_SESSION_DEFAULT = {
   feedback: '',
   showHelp: false,
   loading: false,
+};
+
+const mapLanguageToMonaco = (lang) => {
+  if (lang === 'Python') return 'python';
+  if (lang === 'Java') return 'java';
+  if (lang === 'C++') return 'cpp';
+  if (lang === 'C') return 'c';
+  if (lang === 'Rust') return 'rust';
+  return 'javascript';
 };
 
 export default function CodingPlatform({ profile, setProfile, onNavigate }) {
@@ -219,11 +229,18 @@ export default function CodingPlatform({ profile, setProfile, onNavigate }) {
             Problem {session.challengeIndex + 1} of {session.challenges.length}
           </p>
         </div>
-        <select value={session.selectedLanguage} onChange={handleLanguageChange} className="glass-input text-xs font-semibold py-1.5">
-          <option value="JavaScript">JavaScript</option>
-          <option value="Java">Java</option>
-          <option value="Python">Python</option>
-        </select>
+        <select 
+        value={session.selectedLanguage} 
+        onChange={handleLanguageChange} 
+        className="bg-slate-900 border border-slate-700 text-white rounded-xl text-xs font-semibold py-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer"
+      >
+        <option value="JavaScript" className="bg-slate-950 text-white">JavaScript</option>
+        <option value="Java" className="bg-slate-950 text-white">Java</option>
+        <option value="Python" className="bg-slate-950 text-white">Python</option>
+        <option value="C" className="bg-slate-950 text-white">C</option>
+        <option value="C++" className="bg-slate-950 text-white">C++</option>
+        <option value="Rust" className="bg-slate-950 text-white">Rust</option>
+      </select>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -295,13 +312,24 @@ export default function CodingPlatform({ profile, setProfile, onNavigate }) {
                     </button>
                   </div>
                 </div>
-                <textarea
+                <div className="min-h-[340px] border border-slate-200 dark:border-slate-800/80 rounded-b-xl overflow-hidden bg-slate-950">
+                <Editor
+                  height="340px"
+                  language={mapLanguageToMonaco(session.selectedLanguage)}
+                  theme="vs-dark"
                   value={session.editorCode}
-                  onChange={(e) => setSession((prev) => ({ ...prev, editorCode: e.target.value }))}
-                  className="w-full bg-slate-950 text-emerald-400 font-mono text-sm p-4 min-h-[280px] focus:outline-none resize-none"
-                  spellCheck="false"
-                  placeholder={session.selectedLanguage === 'JavaScript' ? 'function solve(...args) { /* your code */ }' : 'Write your solution here'}
+                  onChange={(val) => setSession((prev) => ({ ...prev, editorCode: val || '' }))}
+                  options={{
+                    fontSize: 13,
+                    fontFamily: 'monospace',
+                    minimap: { enabled: false },
+                    automaticLayout: true,
+                    scrollBeyondLastLine: false,
+                    bracketPairColorization: { enabled: true },
+                    padding: { top: 12, bottom: 12 },
+                  }}
                 />
+              </div>
               </div>
 
               {session.showHelp && helpSolution && (

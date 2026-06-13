@@ -9,7 +9,7 @@ import { fetchProfile, saveProfile as saveProfileToSupabase } from './lib/profil
 import RocketLoader from './components/RocketLoader';
 
 import Dashboard from './pages/Dashboard';
-import SkillAssessment from './pages/SkillAssessment';
+
 import ResumeAnalyzer from './pages/ResumeAnalyzer';
 import PlacementPredictor from './pages/PlacementPredictor';
 import HRInterview from './pages/HRInterview';
@@ -42,6 +42,29 @@ export default function App() {
   const [theme, setTheme] = useState('dark');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [hoveredNavId, setHoveredNavId] = useState(null);
+
+  const [loadingAnimation, setLoadingAnimation] = useState(true);
+  const [animationPhase, setAnimationPhase] = useState('playing'); // 'playing', 'morphing', 'fade-out'
+
+  const handleVideoEnd = useCallback(() => {
+    setAnimationPhase('morphing');
+    setTimeout(() => {
+      setAnimationPhase('fade-out');
+      setTimeout(() => {
+        setLoadingAnimation(false);
+      }, 500);
+    }, 1000);
+  }, []);
+
+  // auto fallback if video fails to play/load
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (animationPhase === 'playing') {
+        handleVideoEnd();
+      }
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [animationPhase, handleVideoEnd]);
 
   const navigateTo = useCallback((pageId) => {
     setActivePage(pageId);
@@ -146,7 +169,6 @@ export default function App() {
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'assessment', label: 'Skill Assessment', icon: Award },
     { id: 'resume', label: 'Resume Analyzer', icon: FileText },
     { id: 'predictor', label: 'Placement Predictor', icon: TrendingUp },
     { id: 'hr-interview', label: 'HR Interview', icon: MessageSquare },
@@ -163,7 +185,6 @@ export default function App() {
     const props = { profile, setProfile: updateProfile, onNavigate: navigateTo };
     switch (activePage) {
       case 'dashboard': return <Dashboard {...props} />;
-      case 'assessment': return <SkillAssessment {...props} />;
       case 'resume': return <ResumeAnalyzer {...props} />;
       case 'predictor': return <PlacementPredictor {...props} />;
       case 'hr-interview': return <HRInterview {...props} />;
@@ -179,21 +200,54 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-950 font-sans transition-colors duration-300">
+    <>
+      {loadingAnimation && (
+        <div className={`fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md transition-opacity duration-500 ${
+          animationPhase === 'fade-out' ? 'opacity-0 pointer-events-none' : 'opacity-100'
+        }`}>
+          <div className={`fixed transition-all duration-1000 ease-in-out z-[110] flex items-center justify-center ${
+            animationPhase === 'playing'
+              ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 md:w-80 md:h-80'
+              : 'top-5 left-5 w-8 h-8 translate-x-0 translate-y-0'
+          }`}>
+            <video
+              src="/animated_video.mp4"
+              autoPlay
+              muted
+              playsInline
+              onEnded={handleVideoEnd}
+              className={`absolute inset-0 w-full h-full object-cover rounded-xl transition-opacity duration-500 ${
+                animationPhase === 'playing' ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+            <img
+              src="/logo.png"
+              alt="CareerPilot AI Logo"
+              className={`absolute inset-0 w-full h-full object-contain rounded-xl transition-opacity duration-1000 ${
+                animationPhase !== 'playing' ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+          </div>
+        </div>
+      )}
 
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 glass-panel border-r border-slate-200 dark:border-slate-800/80 p-5 transform transition-transform duration-300 lg:translate-x-0 flex flex-col justify-between ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
-        <div className="space-y-6 flex-1 flex flex-col min-h-0">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-600 to-indigo-500 flex items-center justify-center text-white font-extrabold text-lg shadow-md shadow-brand-500/20">
-                🚀
+      <div className="min-h-screen flex text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-950 font-sans transition-colors duration-300">
+
+        <aside className={`fixed inset-y-0 left-0 z-50 w-64 glass-panel border-r border-slate-200 dark:border-slate-800/80 p-5 transform transition-transform duration-300 lg:translate-x-0 flex flex-col justify-between ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
+          <div className="space-y-6 flex-1 flex flex-col min-h-0">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <img
+                  src="/logo.png"
+                  alt="CareerPilot AI Logo"
+                  className="w-8 h-8 rounded-xl object-contain shadow-md shadow-brand-500/20"
+                />
+                <span className="font-extrabold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-indigo-600 dark:from-brand-400 dark:to-indigo-400 font-sans">
+                  CareerPilot AI
+                </span>
               </div>
-              <span className="font-extrabold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-indigo-600 dark:from-brand-400 dark:to-indigo-400 font-sans">
-                CareerPilot AI
-              </span>
-            </div>
 
             <button
               onClick={() => setSidebarOpen(false)}
@@ -284,5 +338,6 @@ export default function App() {
         </main>
       </div>
     </div>
+    </>
   );
 }

@@ -309,6 +309,57 @@ const HR_QUESTIONS = [
   "What are your greatest strengths and weaknesses?"
 ];
 
+export const HR_COMPANY_QUESTIONS = {
+  "TCS": [
+    "Why do you want to join TCS, and what do you know about our service-based model?",
+    "Are you comfortable with relocating to different project locations and working in night shifts?",
+    "Tell me about a challenging project you did in college and your role in it.",
+    "TCS works heavily in teams. Share an instance where you worked with a difficult team member and how you handled it."
+  ],
+  "Infosys": [
+    "Why Infosys? What interests you about our training program at Mysore?",
+    "How do you handle rapid technological shifts? If asked to learn a new programming language in a week, how would you approach it?",
+    "Describe a time when you made a mistake in a project. How did you identify and resolve it?",
+    "What are your expectations from this role, and where do you see yourself in the next 5 years?"
+  ],
+  "Wipro": [
+    "Why Wipro, and how do you align with our core values (Spirit of Wipro)?",
+    "If you are assigned to a project that uses a legacy technology instead of a modern framework, how would you react?",
+    "Describe a situation where you had to lead a project or initiative at college.",
+    "How do you prioritize tasks when you are overwhelmed with multiple deadlines?"
+  ],
+  "Google": [
+    "Explain a complex technical concept or system design challenge you solved recently in simple terms.",
+    "Describe a time when you disagreed with a peer or supervisor on a design choice. How did you find common ground?",
+    "How do you ensure 'Googlyness' and keep a user-first mindset when developing software?",
+    "Share an example of an ambiguous problem you faced and how you structured a solution from scratch."
+  ],
+  "Microsoft": [
+    "Microsoft's mission is to empower every person and organization. How does your passion for technology fit into this mission?",
+    "Tell me about a time you took a calculated risk that failed. What did you learn?",
+    "How do you handle customer feedback or criticism of your product or code?",
+    "Describe a technically complex feature you built and how you optimized its performance."
+  ],
+  "Accenture": [
+    "Accenture focuses heavily on digital transformation. What industry trends are you most excited to work on?",
+    "Describe a situation where you had to adapt quickly to a major change in a project's requirements.",
+    "How do you communicate technical requirements to non-technical business clients?",
+    "Describe a successful collaborative project you participated in and your key contributions."
+  ],
+  "Amazon": [
+    "Amazon operates on 16 Leadership Principles. Which of these principles (e.g., Customer Obsession, Ownership, Bias for Action) resonates most with you and why?",
+    "Tell me about a time you had to make a quick decision without all the necessary data.",
+    "Describe a situation where you went above and beyond for a customer or project.",
+    "Tell me about a time you failed to meet a deadline. What did you do to remediate the situation?"
+  ],
+  "General": [
+    "Tell me about yourself.",
+    "Why do you want to join our company?",
+    "What are your greatest strengths and weaknesses?",
+    "How do you manage stress and maintain a healthy work-life balance?"
+  ]
+};
+
 /** Static fallback only — live quizzes use AI generation in Technical Interview */
 const TECH_QUIZZES = {};
 
@@ -370,18 +421,20 @@ export const calculateProfileCompletion = (profile) => {
   return Math.min(100, Math.max(0, earned));
 };
 
+const hasText = (val) => Boolean(val && val.trim().length > 0 && val !== 'Complete your profile' && val !== 'Your college name');
+
 export const getProfileChecklist = (profile) => [
   {
     label: 'Basic details (name & email)',
-    done: Boolean(profile.name?.trim() && profile.email?.trim()),
+    done: Boolean(hasText(profile.name) && hasText(profile.email)),
   },
   {
     label: 'College & academics',
-    done: Boolean(profile.college?.trim() && profile.branch?.trim()),
+    done: Boolean(hasText(profile.college) && hasText(profile.branch)),
   },
   {
     label: 'Career goals selected',
-    done: (profile.aims?.length ?? 0) > 0 || (profile.preferredPaths?.length ?? 0) > 0,
+    done: (profile.aims?.length ?? 0) > 0 || (profile.preferredPaths?.length ?? 0) > 0 || hasText(profile.targetRole),
   },
   {
     label: `Skills added (${profile.skills?.length ?? 0})`,

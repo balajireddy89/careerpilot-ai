@@ -35,9 +35,12 @@ export function mapDbChallengeToUi(row) {
 
 export function getTemplate(challenge, lang) {
   if (!challenge) return '';
-  if (lang === 'Java') return challenge.templateJava || challenge.solutionJava || '';
-  if (lang === 'Python') return challenge.templatePython || challenge.solutionPython || '';
-  return challenge.templateJS || challenge.solutionJS || '';
+  if (lang === 'Java') return challenge.templateJava || challenge.solutionJava || 'public class Solution {\n    // Write your Java code here\n}';
+  if (lang === 'Python') return challenge.templatePython || challenge.solutionPython || 'def solve(input_val):\n    # Write your Python code here\n    pass';
+  if (lang === 'C') return '// C Solution\n#include <stdio.h>\n\nvoid solve() {\n    // Write your C code here\n}';
+  if (lang === 'C++') return '// C++ Solution\n#include <iostream>\nusing namespace std;\n\nvoid solve() {\n    // Write your C++ code here\n}';
+  if (lang === 'Rust') return '// Rust Solution\nfn solve() {\n    // Write your Rust code here\n}';
+  return challenge.templateJS || challenge.solutionJS || 'function solve(input) {\n    // Write your JavaScript code here\n}';
 }
 
 export function getSolution(challenge, lang) {

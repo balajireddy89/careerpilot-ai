@@ -5,6 +5,7 @@ import {
   fetchCategoryNames,
   fetchMcqForQuiz,
   mapMcqToTechQuiz,
+  fetchMcqQuestionsCounts,
   DEFAULT_TECH_TOPICS,
 } from '../lib/questionBankService';
 import { recordQuizCompletion } from '../lib/quizRewards';
@@ -28,6 +29,7 @@ export default function TechnicalInterview({ profile, setProfile }) {
   const [session, setSession] = useFeatureSession('tech-interview', profileKey, TECH_SESSION_DEFAULT);
   const [loadError, setLoadError] = useState('');
   const [topics, setTopics] = useState(DEFAULT_TECH_TOPICS);
+  const [counts, setCounts] = useState({});
 
   const {
     selectedTopic, activeQuiz, currentQIndex, selectedAnswer,
@@ -36,6 +38,7 @@ export default function TechnicalInterview({ profile, setProfile }) {
 
   useEffect(() => {
     fetchCategoryNames('technical', DEFAULT_TECH_TOPICS).then(setTopics).catch(() => {});
+    fetchMcqQuestionsCounts('technical').then(setCounts).catch(() => {});
   }, []);
 
   const startQuiz = async (topic) => {
@@ -138,27 +141,66 @@ export default function TechnicalInterview({ profile, setProfile }) {
       )}
 
       {!activeQuiz ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {topics.map((topic) => {
-            const rewarded = profile.quizRewards?.[`tech:${topic}`]?.xpAwarded;
-            return (
-              <div key={topic} className="glass-card p-6 flex flex-col justify-between hover:border-brand-500 transition-colors">
-                <div className="space-y-3">
-                  <BookOpen className="w-5 h-5 text-brand-500" />
-                  <h3 className="text-base font-bold">{topic}</h3>
-                  <p className="text-xs text-slate-500">Up to 10 questions from admin bank</p>
-                  {rewarded && (
-                    <span className="inline-block text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                      XP earned
-                    </span>
-                  )}
-                </div>
-                <button onClick={() => startQuiz(topic)} className="mt-6 w-full py-2 bg-brand-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5">
-                  Start Technical Quiz <Play className="w-3.5 h-3.5 fill-current" />
-                </button>
+        <div className="space-y-8 animate-fade-in">
+          {/* 1. Available interview topics */}
+          <div className="space-y-4">
+            <h2 className="text-sm font-bold text-emerald-500 uppercase tracking-wider">Available Interview Quizzes</h2>
+            {topics.filter((t) => (counts[t] || 0) > 0).length === 0 ? (
+              <p className="text-xs text-slate-500 italic">No technical topics seeded in the database. Seed questions in the Admin Panel to activate subjects.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {topics
+                  .filter((topic) => (counts[topic] || 0) > 0)
+                  .map((topic) => {
+                    const rewarded = profile.quizRewards?.[`tech:${topic}`]?.xpAwarded;
+                    return (
+                      <div key={topic} className="glass-card p-6 flex flex-col justify-between hover:border-brand-500 hover:scale-[1.02] transition-all duration-300">
+                        <div className="space-y-3">
+                          <BookOpen className="w-5 h-5 text-emerald-500" />
+                          <h3 className="text-base font-bold">{topic}</h3>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[10px] bg-emerald-500/10 text-emerald-600 font-bold px-2.5 py-0.5 rounded-full">
+                              {counts[topic]} Questions
+                            </span>
+                            {rewarded && (
+                              <span className="text-[10px] font-bold text-brand-600 bg-brand-500/10 px-2.5 py-0.5 rounded-full">
+                                XP Earned
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button onClick={() => startQuiz(topic)} className="mt-6 w-full py-2 bg-brand-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-brand-500 transition-colors">
+                          Start Quiz <Play className="w-3.5 h-3.5 fill-current" />
+                        </button>
+                      </div>
+                    );
+                  })}
               </div>
-            );
-          })}
+            )}
+          </div>
+
+          {/* 2. Coming Soon topics */}
+          <div className="space-y-4 pt-4">
+            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Coming Soon / No Questions Seeded</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {topics
+                .filter((topic) => !(counts[topic] || 0))
+                .map((topic) => (
+                  <div key={topic} className="glass-card p-6 flex flex-col justify-between opacity-60 border border-dashed border-slate-200 dark:border-slate-800">
+                    <div className="space-y-3">
+                      <BookOpen className="w-5 h-5 text-slate-400" />
+                      <h3 className="text-base font-bold text-slate-500">{topic}</h3>
+                      <span className="inline-block text-[10px] bg-slate-100 dark:bg-slate-900 text-slate-400 font-semibold px-2 py-0.5 rounded-full">
+                        0 Questions available
+                      </span>
+                    </div>
+                    <button disabled className="mt-6 w-full py-2 bg-slate-200 dark:bg-slate-800 text-slate-400 text-xs font-semibold rounded-xl cursor-not-allowed">
+                      Future Available
+                    </button>
+                  </div>
+                ))}
+            </div>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">

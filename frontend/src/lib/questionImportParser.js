@@ -78,3 +78,26 @@ export async function readFilesAsText(fileList) {
   );
   return results;
 }
+
+export function parseHRQuestionsJson(text, companyName) {
+  const parsed = JSON.parse(text);
+  const items = Array.isArray(parsed) ? parsed : [parsed];
+  return items
+    .map((item) => {
+      let qText = '';
+      if (typeof item === 'string') {
+        qText = item;
+      } else if (item && typeof item === 'object') {
+        qText = item.question || item.q || item.question_text || '';
+      }
+      qText = String(qText).trim();
+      if (!qText) return null;
+
+      return {
+        company_name: companyName,
+        question_text: qText,
+        is_active: true,
+      };
+    })
+    .filter(Boolean);
+}
