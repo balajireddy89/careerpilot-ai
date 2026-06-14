@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   LayoutDashboard, Award, FileText, TrendingUp,
-  MessageSquare, BookOpen, Code2, Brain, Target, Users, Sun, Moon, Menu, X, Zap, UserCircle,
-  Compass, Briefcase
+  MessageSquare, BookOpen, Code2, Brain, Target, Users, Sun, Moon, Menu, X, Zap, UserCircle
 } from 'lucide-react';
 import { INITIAL_PROFILE } from './mock/mockData';
 import { useAuth } from './context/AuthContext';
@@ -10,10 +9,7 @@ import { fetchProfile, saveProfile as saveProfileToSupabase } from './lib/profil
 import RocketLoader from './components/RocketLoader';
 
 import Dashboard from './pages/Dashboard';
-import SkillAssessment from './pages/SkillAssessment';
-import CareerGuidance from './pages/CareerGuidance';
 import ResumeAnalyzer from './pages/ResumeAnalyzer';
-import InternshipEngine from './pages/InternshipEngine';
 import PlacementPredictor from './pages/PlacementPredictor';
 import HRInterview from './pages/HRInterview';
 import TechnicalInterview from './pages/TechnicalInterview';
@@ -65,7 +61,7 @@ export default function App() {
       if (animationPhase === 'playing') {
         handleVideoEnd();
       }
-    }, 4500);
+    }, 2000); // Shorter loading animation duration
     return () => clearTimeout(timer);
   }, [animationPhase, handleVideoEnd]);
 
@@ -172,10 +168,7 @@ export default function App() {
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'skill-assessment', label: 'Skill Assessment', icon: Award },
-    { id: 'career-guidance', label: 'Career Guidance', icon: Compass },
     { id: 'resume', label: 'Resume Analyzer', icon: FileText },
-    { id: 'internship', label: 'Internship Engine', icon: Briefcase },
     { id: 'predictor', label: 'Placement Predictor', icon: TrendingUp },
     { id: 'hr-interview', label: 'HR Interview', icon: MessageSquare },
     { id: 'tech-interview', label: 'Technical Interview', icon: BookOpen },
@@ -198,10 +191,7 @@ export default function App() {
     const props = { profile, setProfile: updateProfile, onNavigate: navigateTo };
     switch (activePage) {
       case 'dashboard': return <Dashboard {...props} />;
-      case 'skill-assessment': return <SkillAssessment {...props} />;
-      case 'career-guidance': return <CareerGuidance {...props} />;
       case 'resume': return <ResumeAnalyzer {...props} />;
-      case 'internship': return <InternshipEngine {...props} />;
       case 'predictor': return <PlacementPredictor {...props} />;
       case 'hr-interview': return <HRInterview {...props} />;
       case 'tech-interview': return <TechnicalInterview {...props} />;
@@ -218,7 +208,7 @@ export default function App() {
   return (
     <>
       {loadingAnimation && (
-        <div className={`fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md transition-opacity duration-500 ${
+        <div className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md transition-opacity duration-500 ${
           animationPhase === 'fade-out' ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}>
           <div className={`fixed transition-all duration-1000 ease-in-out z-[110] flex items-center justify-center ${
@@ -244,6 +234,11 @@ export default function App() {
               }`}
             />
           </div>
+          {animationPhase === 'playing' && (
+            <p className="absolute bottom-16 left-1/2 -translate-x-1/2 text-xs font-bold text-slate-400 tracking-wider uppercase animate-pulse">
+              Loading profile...
+            </p>
+          )}
         </div>
       )}
 
