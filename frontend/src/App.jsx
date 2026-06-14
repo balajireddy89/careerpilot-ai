@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   LayoutDashboard, Award, FileText, TrendingUp,
-  MessageSquare, BookOpen, Code2, Brain, Target, Users, Sun, Moon, Menu, X, Zap, UserCircle
+  MessageSquare, BookOpen, Code2, Brain, Target, Users, Sun, Moon, Menu, X, Zap, UserCircle,
+  Compass, Briefcase
 } from 'lucide-react';
 import { INITIAL_PROFILE } from './mock/mockData';
 import { useAuth } from './context/AuthContext';
@@ -9,8 +10,10 @@ import { fetchProfile, saveProfile as saveProfileToSupabase } from './lib/profil
 import RocketLoader from './components/RocketLoader';
 
 import Dashboard from './pages/Dashboard';
-
+import SkillAssessment from './pages/SkillAssessment';
+import CareerGuidance from './pages/CareerGuidance';
 import ResumeAnalyzer from './pages/ResumeAnalyzer';
+import InternshipEngine from './pages/InternshipEngine';
 import PlacementPredictor from './pages/PlacementPredictor';
 import HRInterview from './pages/HRInterview';
 import TechnicalInterview from './pages/TechnicalInterview';
@@ -159,33 +162,46 @@ export default function App() {
 
   if (authLoading) return <RocketLoader label="Checking session..." />;
   if (!session) return <AuthPage />;
-  if ((profileLoading && !profile) || !profile) return <RocketLoader label="Loading your profile..." />;
 
-  if (!profile.onboarded) {
+  // If the profile is loaded and the user is not onboarded, redirect to onboarding wizard
+  if (profile && !profile.onboarded) {
     return <OnboardingWizard profile={profile} setProfile={updateProfile} />;
   }
 
-  const displayRole = profile.primaryPriority || profile.targetRole || profile.preferredPaths?.[0] || 'Your career path';
+  const displayRole = profile?.primaryPriority || profile?.targetRole || profile?.preferredPaths?.[0] || 'Your career path';
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'skill-assessment', label: 'Skill Assessment', icon: Award },
+    { id: 'career-guidance', label: 'Career Guidance', icon: Compass },
     { id: 'resume', label: 'Resume Analyzer', icon: FileText },
+    { id: 'internship', label: 'Internship Engine', icon: Briefcase },
     { id: 'predictor', label: 'Placement Predictor', icon: TrendingUp },
     { id: 'hr-interview', label: 'HR Interview', icon: MessageSquare },
     { id: 'tech-interview', label: 'Technical Interview', icon: BookOpen },
-    { id: 'coding', label: 'Coding Practice', icon: Code2 },
+    { id: 'coding', label: 'Coding Platform', icon: Code2 },
     { id: 'aptitude', label: 'Aptitude Prep', icon: Brain },
     { id: 'roadmap', label: 'Learning Roadmap', icon: Target },
     { id: 'chatbot', label: 'Career Chatbot', icon: MessageSquare },
     { id: 'profile', label: 'Profile', icon: UserCircle },
-    ...(profile.isAdmin ? [{ id: 'admin', label: 'Admin Panel', icon: Users }] : []),
+    ...(profile?.isAdmin ? [{ id: 'admin', label: 'Admin Panel', icon: Users }] : []),
   ];
 
   const renderActivePage = () => {
+    if (!profile) {
+      return (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      );
+    }
     const props = { profile, setProfile: updateProfile, onNavigate: navigateTo };
     switch (activePage) {
       case 'dashboard': return <Dashboard {...props} />;
+      case 'skill-assessment': return <SkillAssessment {...props} />;
+      case 'career-guidance': return <CareerGuidance {...props} />;
       case 'resume': return <ResumeAnalyzer {...props} />;
+      case 'internship': return <InternshipEngine {...props} />;
       case 'predictor': return <PlacementPredictor {...props} />;
       case 'hr-interview': return <HRInterview {...props} />;
       case 'tech-interview': return <TechnicalInterview {...props} />;
@@ -295,10 +311,10 @@ export default function App() {
           className="border-t border-slate-200 dark:border-slate-800/60 pt-4 mt-4 flex items-center gap-3 w-full text-left hover:opacity-80 transition-opacity"
         >
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-600 to-indigo-500 flex items-center justify-center font-bold text-white text-sm">
-            {profile.name ? profile.name.substring(0, 2).toUpperCase() : 'BR'}
+            {profile?.name ? profile.name.substring(0, 2).toUpperCase() : 'CP'}
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{profile.name || 'Student Name'}</p>
+            <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{profile?.name || 'Loading profile...'}</p>
             <p className="text-[10px] text-slate-400 truncate">{displayRole}</p>
           </div>
         </button>
@@ -321,7 +337,7 @@ export default function App() {
             )}
             <div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
               <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
-              <span>{profile.points} XP</span>
+              <span>{profile?.points ?? 0} XP</span>
             </div>
 
             <button

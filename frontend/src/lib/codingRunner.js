@@ -1,4 +1,5 @@
-/** Local test runner — no AI required */
+import { callOpenRouter } from './openRouter';
+import { isOpenRouterConfigured } from './config';
 
 function shuffleArray(arr) {
   const a = [...arr];
@@ -173,6 +174,50 @@ function runJavaScriptTests(code, testCases) {
   };
 }
 
+async function runCodeWithAi(code, challenge, language) {
+  const testCases = challenge.testCases || [];
+  const systemPrompt = `You are an expert programming compiler and code execution engine.
+Your task is to dry-run or compile and run the provided code in the specified programming language against the given test cases.
+Evaluate the correctness of the code. Run the code logic step-by-step for each input to see if it yields the expected output.
+Return ONLY a valid JSON object matching this schema:
+{
+  "passed": boolean,
+  "logs": string[],
+  "feedback": string
+}
+Do not include any markdown formatting, markdown code blocks, or explanations outside the JSON object. Just return the raw JSON.`;
+
+  const userMessage = `Language: ${language}
+Challenge: ${challenge.title}
+Description: ${challenge.description}
+Test Cases: ${JSON.stringify(testCases)}
+Code:
+${code}`;
+
+  try {
+    const response = await callOpenRouter({
+      systemPrompt,
+      userMessage,
+      temperature: 0.1,
+    });
+    
+    const cleanJson = response.trim().replace(/^```json\s*/i, '').replace(/```$/, '').trim();
+    const result = JSON.parse(cleanJson);
+    return {
+      passed: Boolean(result.passed),
+      logs: Array.isArray(result.logs) ? result.logs : ['AI evaluation complete.'],
+      feedback: String(result.feedback || ''),
+    };
+  } catch (err) {
+    console.error('AI code run failed:', err);
+    return {
+      passed: false,
+      logs: [`AI compiler execution failed: ${err.message}`],
+      feedback: 'Failed to evaluate code with AI.',
+    };
+  }
+}
+
 export async function reviewCodeLocally({ code, challenge, language }) {
   const testCases = challenge?.testCases || [];
   if (!testCases.length) {
@@ -185,6 +230,10 @@ export async function reviewCodeLocally({ code, challenge, language }) {
 
   if (language === 'Python') {
     return runPythonTests(code, testCases);
+  }
+
+  if (isOpenRouterConfigured) {
+    return runCodeWithAi(code, challenge, language);
   }
 
   const solution = getSolution(challenge, language);
@@ -200,7 +249,7 @@ export async function reviewCodeLocally({ code, challenge, language }) {
     passed: false,
     logs: [
       ...logs,
-      `Automated run is available for JavaScript and Python. For ${language}, compare your output with expected results above.`,
+      `OpenRouter API key is not configured. Please add VITE_OPENROUTER_API_KEY to your .env file to enable automated runs for ${language}.`,
       solution ? 'Tip: open "Show solution" if you are stuck.' : 'Ask admin to add a reference solution.',
     ],
     feedback: `Manual verification required for ${language}. Use "Mark verified" after checking test cases.`,

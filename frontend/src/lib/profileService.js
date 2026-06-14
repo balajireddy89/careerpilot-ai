@@ -134,6 +134,45 @@ export async function fetchProfile(userId, userEmail = '') {
 
   let profile = prepareProfile(data);
 
+  // Daily Streak calculation: compare current local date with last active date in quiz_rewards
+  try {
+    const todayStr = new Date().toLocaleDateString('en-CA'); // Outputs YYYY-MM-DD
+    const quizRewards = profile.quizRewards || {};
+    const lastLoginStr = quizRewards.lastLoginDate;
+    let newStreak = profile.dailyStreak || 1;
+    let streakUpdated = false;
+
+    if (!lastLoginStr) {
+      newStreak = 1;
+      streakUpdated = true;
+    } else {
+      const lastLoginDate = new Date(lastLoginStr + 'T00:00:00');
+      const todayDate = new Date(todayStr + 'T00:00:00');
+      const diffTime = todayDate - lastLoginDate;
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) {
+        newStreak += 1;
+        streakUpdated = true;
+      } else if (diffDays > 1) {
+        newStreak = 1;
+        streakUpdated = true;
+      }
+    }
+
+    if (streakUpdated) {
+      profile.dailyStreak = newStreak;
+      profile.quizRewards = {
+        ...quizRewards,
+        lastLoginDate: todayStr,
+      };
+      // Save the updated profile back to database asynchronously
+      saveProfile(userId, profile).catch((err) => console.warn('Failed to save updated daily streak:', err));
+    }
+  } catch (streakErr) {
+    console.warn('Daily streak calculation error:', streakErr);
+  }
+
   const adminEmail = 'reddy.kuppila2006@gmail.com';
   const adminCheckedKey = `careerpilot_admin_checked_${userId}`;
   const alreadyCheckedAdmin = (() => {

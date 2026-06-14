@@ -15,6 +15,7 @@ function mapRowToProfile(row) {
     onboarded: row.onboarded ?? false,
     isAdmin: row.is_admin ?? false,
     points: row.points ?? 0,
+    dailyStreak: row.daily_streak ?? 1,
     profileCompletion: row.profile_completion ?? 0,
     resumeDetails: { ...INITIAL_PROFILE.resumeDetails, ...(row.resume_details ?? {}) },
     codingStats: { ...INITIAL_PROFILE.codingStats, ...(row.coding_stats ?? {}) },
@@ -41,6 +42,7 @@ export function mapRowToAdminStudent(row) {
     resumeScore: hasUploadedResume(profile) ? (profile.resumeDetails?.score ?? 0) : 0,
     profileCompletion: calculateProfileCompletion(profile),
     points: profile.points,
+    dailyStreak: profile.dailyStreak,
     hrScore: profile.interviewStats?.hrScore ?? 0,
     techScore: profile.interviewStats?.techScore ?? 0,
     updatedAt: profile.updatedAt,
@@ -77,6 +79,28 @@ export async function setStudentAdminStatus(userId, isAdmin) {
     .eq('user_id', userId)
     .select('user_id, email, is_admin')
     .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateStudentStreakAndPoints(userId, points, dailyStreak) {
+  const { data, error } = await supabase
+    .from('student_profiles')
+    .update({ points, daily_streak: dailyStreak })
+    .eq('user_id', userId)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return mapRowToAdminStudent(data);
+}
+
+export async function resetAllStudentsPointsAndStreak() {
+  const { data, error } = await supabase
+    .from('student_profiles')
+    .update({ points: 100, daily_streak: 1 })
+    .neq('user_id', '00000000-0000-0000-0000-000000000000');
 
   if (error) throw error;
   return data;

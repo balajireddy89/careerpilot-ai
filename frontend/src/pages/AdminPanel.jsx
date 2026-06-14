@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import {
   Users, BookOpen, Download, CheckCircle, RefreshCw, ShieldAlert,
-  Code2, Brain, Map, Shield, MessageSquare,
+  Code2, Brain, Map, Shield, MessageSquare, Edit2, Save, X
 } from 'lucide-react';
-import { fetchAllStudents, computeAdminStats, exportStudentsCsv, setStudentAdminStatus } from '../lib/adminService';
+import { fetchAllStudents, computeAdminStats, exportStudentsCsv, setStudentAdminStatus, updateStudentStreakAndPoints, resetAllStudentsPointsAndStreak } from '../lib/adminService';
 import { TECH_INTERVIEW_TOPICS } from '../lib/csSkillsCatalog';
 import { APTITUDE_DEFAULTS } from '../lib/questionBankService';
 import QuestionBankEditor from '../components/admin/QuestionBankEditor';
@@ -23,6 +23,10 @@ export default function AdminPanel({ profile }) {
   const [exportMsg, setExportMsg] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingStudentId, setEditingStudentId] = useState(null);
+  const [editPoints, setEditPoints] = useState(0);
+  const [editStreak, setEditStreak] = useState(1);
+  const [updatingStudent, setUpdatingStudent] = useState(false);
 
   const filteredStudents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -52,6 +56,42 @@ export default function AdminPanel({ profile }) {
     if (profile.isAdmin) loadStudents();
     else setLoading(false);
   }, [profile.isAdmin]);
+
+  const handleStartEdit = (student) => {
+    setEditingStudentId(student.userId);
+    setEditPoints(student.points);
+    setEditStreak(student.dailyStreak || 1);
+  };
+
+  const handleSaveEdit = async (student) => {
+    setUpdatingStudent(true);
+    try {
+      await updateStudentStreakAndPoints(student.userId, editPoints, editStreak);
+      setAdminMsg(`Successfully updated points and streak for ${student.email || 'student'}.`);
+      setTimeout(() => setAdminMsg(''), 3000);
+      setEditingStudentId(null);
+      await loadStudents();
+    } catch (err) {
+      alert(err.message || 'Failed to update student metrics.');
+    } finally {
+      setUpdatingStudent(false);
+    }
+  };
+
+  const handleResetAll = async () => {
+    if (!window.confirm("WARNING: Are you sure you want to RESET everyone's points to 100 and daily streaks to 1? This action cannot be undone.")) return;
+    setLoading(true);
+    try {
+      await resetAllStudentsPointsAndStreak();
+      setAdminMsg('Successfully reset all student points and streaks.');
+      setTimeout(() => setAdminMsg(''), 4000);
+      await loadStudents();
+    } catch (err) {
+      alert(err.message || 'Failed to reset student metrics.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleToggleAdmin = async (student) => {
     const next = !student.isAdmin;
@@ -176,15 +216,24 @@ export default function AdminPanel({ profile }) {
           {activeSubTab === 'students' && (
             <div className="space-y-4">
               <p className="text-sm text-slate-500">Grant or revoke admin access. Primary admin: {PRIMARY_ADMIN_EMAIL}</p>
-              <div className="relative max-w-md">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name or email..."
-                  className="glass-input w-full pl-10 py-2.5 text-sm"
-                />
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative max-w-md w-full">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by name or email..."
+                    className="glass-input w-full pl-10 py-2.5 text-sm"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleResetAll}
+                  className="px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-md transition-all shrink-0"
+                >
+                  Reset All Student XP & Streaks
+                </button>
               </div>
               {loading ? (
                 <p className="text-sm text-slate-500 animate-pulse">Loading students...</p>
@@ -201,34 +250,99 @@ export default function AdminPanel({ profile }) {
                         <th className="pb-3 pr-4 font-bold text-sm">EMAIL</th>
                         <th className="pb-3 pr-4 font-bold text-sm">COLLEGE</th>
                         <th className="pb-3 pr-4 font-bold text-sm text-center">XP</th>
+                        <th className="pb-3 pr-4 font-bold text-sm text-center">STREAK</th>
                         <th className="pb-3 pr-4 font-bold text-sm text-center">READINESS</th>
-                        <th className="pb-3 font-bold text-sm text-right">ADMIN</th>
+                        <th className="pb-3 font-bold text-sm text-right">ACTIONS</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredStudents.map((student) => (
-                        <tr key={student.id} className="border-b border-slate-100 dark:border-slate-800/50 text-slate-700 dark:text-slate-300">
-                          <td className="py-4 pr-4 font-bold text-base">{student.name}</td>
-                          <td className="py-4 pr-4 text-sm">{student.email}</td>
-                          <td className="py-4 pr-4 text-sm">{student.college || '—'}</td>
-                          <td className="py-4 pr-4 text-center font-mono text-base">{student.points}</td>
-                          <td className="py-4 pr-4 text-center font-mono text-base">{student.readiness}%</td>
-                          <td className="py-4 text-right">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleAdmin(student)}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${
-                                student.isAdmin
-                                  ? 'bg-brand-500/15 text-brand-600'
-                                  : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
-                              }`}
-                            >
-                              <Shield className="w-3.5 h-3.5" />
-                              {student.isAdmin ? 'Admin' : 'Make Admin'}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {filteredStudents.map((student) => {
+                        const isEditing = editingStudentId === student.userId;
+                        return (
+                          <tr key={student.id} className="border-b border-slate-100 dark:border-slate-800/50 text-slate-700 dark:text-slate-300">
+                            <td className="py-4 pr-4 font-bold text-base">{student.name}</td>
+                            <td className="py-4 pr-4 text-sm">{student.email}</td>
+                            <td className="py-4 pr-4 text-sm">{student.college || '—'}</td>
+                            
+                            <td className="py-4 pr-4 text-center font-mono text-base">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  value={editPoints}
+                                  onChange={(e) => setEditPoints(Number(e.target.value))}
+                                  className="w-20 text-center py-1 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 font-bold text-slate-900 dark:text-slate-100"
+                                />
+                              ) : (
+                                student.points
+                              )}
+                            </td>
+
+                            <td className="py-4 pr-4 text-center font-mono text-base">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  value={editStreak}
+                                  onChange={(e) => setEditStreak(Number(e.target.value))}
+                                  className="w-16 text-center py-1 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500 font-bold text-slate-900 dark:text-slate-100"
+                                />
+                              ) : (
+                                `${student.dailyStreak || 1} days`
+                              )}
+                            </td>
+
+                            <td className="py-4 pr-4 text-center font-mono text-base">{student.readiness}%</td>
+                            
+                            <td className="py-4 text-right">
+                              <div className="flex justify-end items-center gap-2 flex-wrap">
+                                {isEditing ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveEdit(student)}
+                                      disabled={updatingStudent}
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                                    >
+                                      <Save className="w-3.5 h-3.5" />
+                                      Save
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingStudentId(null)}
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-300 hover:bg-slate-400 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold transition-all"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                      Cancel
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStartEdit(student)}
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold transition-all"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                      Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleAdmin(student)}
+                                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${
+                                        student.isAdmin
+                                          ? 'bg-brand-500/15 text-brand-600 font-extrabold'
+                                          : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
+                                      }`}
+                                    >
+                                      <Shield className="w-3.5 h-3.5" />
+                                      {student.isAdmin ? 'Admin' : 'Make Admin'}
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

@@ -192,12 +192,12 @@ export default function ProfileSettings({ profile, setProfile }) {
         {/* COLUMN 1: Basic details and Self-ratings */}
         <div className="space-y-6">
           <section className="glass-card p-6 space-y-4">
-            <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <GraduationCap className="w-4 h-4 text-brand-500" /> Basic Details
             </h2>
             {['name', 'email', 'phone', 'college', 'degree', 'branch', 'cgpa'].map((field) => (
               <div key={field}>
-                <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">
+                <label className="text-xs font-bold uppercase text-slate-400 mb-1.5 block">
                   {field === 'cgpa' ? 'CGPA / Percentage' : field.replace(/([A-Z])/g, ' $1')}
                 </label>
                 <input
@@ -205,35 +205,35 @@ export default function ProfileSettings({ profile, setProfile }) {
                   value={form[field]}
                   onChange={handleChange}
                   disabled={field === 'email'}
-                  className="glass-input w-full text-xs disabled:opacity-60"
+                  className="glass-input w-full text-sm disabled:opacity-60"
                   placeholder={`Your ${field}`}
                 />
               </div>
             ))}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Current Year</label>
-                <select name="currentYear" value={form.currentYear} onChange={handleChange} className="glass-input w-full text-xs">
+                <label className="text-xs font-bold uppercase text-slate-400 mb-1.5 block">Current Year</label>
+                <select name="currentYear" value={form.currentYear} onChange={handleChange} className="glass-input w-full text-sm">
                   {['1st', '2nd', '3rd', '4th', 'Graduated'].map((y) => (
                     <option key={y} value={y}>{y} Year</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Graduation Year</label>
+                <label className="text-xs font-bold uppercase text-slate-400 mb-1.5 block">Graduation Year</label>
                 <input
                   type="number"
                   name="graduationYear"
                   value={form.graduationYear}
                   onChange={handleChange}
-                  className="glass-input w-full text-xs"
+                  className="glass-input w-full text-sm"
                 />
               </div>
             </div>
           </section>
 
           <section className="glass-card p-6 space-y-5">
-            <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <Sliders className="w-4 h-4 text-brand-500" /> Self-Assessment Ratings
             </h2>
             
@@ -245,9 +245,9 @@ export default function ProfileSettings({ profile, setProfile }) {
                 { key: 'problemSolving', label: 'General Problem Solving' }
               ].map((metric) => (
                 <div key={metric.key} className="space-y-1">
-                  <div className="flex justify-between text-xs font-semibold">
+                  <div className="flex justify-between text-sm font-semibold">
                     <span>{metric.label}</span>
-                    <span className="text-brand-500 font-bold">{form.codingRating[metric.key]}/5</span>
+                    <span className="text-brand-500 font-extrabold text-sm">{form.codingRating[metric.key]}/5</span>
                   </div>
                   <input
                     type="range" min="1" max="5"
@@ -270,9 +270,9 @@ export default function ProfileSettings({ profile, setProfile }) {
                 { key: 'englishProficiency', label: 'English fluency' }
               ].map((metric) => (
                 <div key={metric.key} className="space-y-1">
-                  <div className="flex justify-between text-xs font-semibold">
+                  <div className="flex justify-between text-sm font-semibold">
                     <span>{metric.label}</span>
-                    <span className="text-brand-500 font-bold">{form.hrRating[metric.key]}/10</span>
+                    <span className="text-brand-500 font-extrabold text-sm">{form.hrRating[metric.key]}/10</span>
                   </div>
                   <input
                     type="range" min="1" max="10"
@@ -289,13 +289,13 @@ export default function ProfileSettings({ profile, setProfile }) {
         {/* COLUMN 2: Preferences, Interests, Skills catalog */}
         <div className="space-y-6">
           <section className="glass-card p-6 space-y-4">
-            <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <Briefcase className="w-4 h-4 text-brand-500" /> Career Preferences
             </h2>
 
             {/* Aims Multi-select */}
             <div>
-              <label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">What are you aiming for?</label>
+              <label className="text-xs font-bold uppercase text-slate-400 mb-2 block">What are you aiming for?</label>
               <div className="flex flex-wrap gap-1.5">
                 {["Internship", "Placement", "Higher Studies", "Freelancing", "Startup"].map((aim) => {
                   const isSelected = form.aims.includes(aim);
@@ -304,7 +304,7 @@ export default function ProfileSettings({ profile, setProfile }) {
                       key={aim}
                       type="button"
                       onClick={() => toggleListItem('aims', aim)}
-                      className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${
                         isSelected 
                           ? 'bg-brand-600 border-brand-600 text-white' 
                           : 'bg-white/40 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800 text-slate-500'
@@ -318,8 +318,8 @@ export default function ProfileSettings({ profile, setProfile }) {
             </div>
 
             <div>
-              <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Primary Career Goal / Focus</label>
-              <select name="primaryPriority" value={form.primaryPriority} onChange={handleChange} className="glass-input w-full text-xs">
+              <label className="text-xs font-bold uppercase text-slate-400 mb-1.5 block">Primary Career Goal / Focus</label>
+              <select name="primaryPriority" value={form.primaryPriority} onChange={handleChange} className="glass-input w-full text-sm">
                 <option value="">Select your main focus</option>
                 {PATH_OPTIONS.map((path) => (
                   <option key={path} value={path}>{path}</option>
@@ -329,16 +329,16 @@ export default function ProfileSettings({ profile, setProfile }) {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Work Type</label>
-                <select name="workType" value={form.workType} onChange={handleChange} className="glass-input w-full text-xs">
+                <label className="text-xs font-bold uppercase text-slate-400 mb-1.5 block">Work Type</label>
+                <select name="workType" value={form.workType} onChange={handleChange} className="glass-input w-full text-sm">
                   {['On-site', 'Remote', 'Hybrid'].map((t) => (
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] font-bold uppercase text-slate-400 mb-1 block">Weekly Hours</label>
-                <select name="weeklyHours" value={form.weeklyHours} onChange={handleChange} className="glass-input w-full text-xs">
+                <label className="text-xs font-bold uppercase text-slate-400 mb-1.5 block">Weekly Hours</label>
+                <select name="weeklyHours" value={form.weeklyHours} onChange={handleChange} className="glass-input w-full text-sm">
                   {['5-10', '10-20', '20-30', '30+'].map((h) => (
                     <option key={h} value={h}>{h} hours</option>
                   ))}
@@ -348,7 +348,7 @@ export default function ProfileSettings({ profile, setProfile }) {
 
             {/* Other Career Paths Multi-select */}
             <div>
-              <label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">Additional Career Paths of Interest</label>
+              <label className="text-xs font-bold uppercase text-slate-400 mb-2 block">Additional Career Paths of Interest</label>
               <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
                 {PATH_OPTIONS.map((path) => {
                   const isSelected = form.preferredPaths.includes(path);
@@ -357,7 +357,7 @@ export default function ProfileSettings({ profile, setProfile }) {
                       key={path}
                       type="button"
                       onClick={() => toggleListItem('preferredPaths', path)}
-                      className={`px-2 py-1 rounded-lg text-[9px] font-bold border transition-all ${
+                      className={`px-2 py-1 rounded-lg text-xs font-bold border transition-all ${
                         isSelected 
                           ? 'bg-brand-600 border-brand-600 text-white' 
                           : 'bg-white/40 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800 text-slate-500'
@@ -372,14 +372,14 @@ export default function ProfileSettings({ profile, setProfile }) {
 
             {/* Preferred Companies Multi-select */}
             <div>
-              <label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">Preferred Target Companies</label>
+              <label className="text-xs font-bold uppercase text-slate-400 mb-2 block">Preferred Target Companies</label>
               <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
                 {COMPANY_OPTIONS.map((company) => (
                   <button
                     key={company}
                     type="button"
                     onClick={() => toggleListItem('preferredCompanies', company)}
-                    className={`px-2 py-1 rounded-lg text-[9px] font-bold border transition-all ${
+                    className={`px-2 py-1 rounded-lg text-xs font-bold border transition-all ${
                       form.preferredCompanies.includes(company)
                         ? 'bg-brand-600 text-white border-brand-600'
                         : 'border-slate-200 dark:border-slate-700 text-slate-500'
@@ -394,7 +394,7 @@ export default function ProfileSettings({ profile, setProfile }) {
 
           {/* Interests Section */}
           <section className="glass-card p-6 space-y-4">
-            <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <Heart className="w-4 h-4 text-brand-500" /> Areas of Interest
             </h2>
             <div className="flex flex-wrap gap-1.5">
@@ -405,7 +405,7 @@ export default function ProfileSettings({ profile, setProfile }) {
                     key={interest}
                     type="button"
                     onClick={() => toggleListItem('interests', interest)}
-                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${
                       isSelected 
                         ? 'bg-brand-600 border-brand-600 text-white' 
                         : 'bg-white/40 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800 text-slate-500'
@@ -420,7 +420,7 @@ export default function ProfileSettings({ profile, setProfile }) {
 
           {/* Skills Assessment Section with custom skill adding & proficiency selects */}
           <section className="glass-card p-6 space-y-4">
-            <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <Award className="w-4 h-4 text-brand-500" /> Skills Catalog
             </h2>
 
@@ -435,13 +435,13 @@ export default function ProfileSettings({ profile, setProfile }) {
                     setNewSkill(e.target.value);
                     setShowSuggestions(true);
                   }}
-                  className="glass-input flex-1 py-1.5 text-xs"
+                  className="glass-input flex-1 py-2 text-sm"
                   autoComplete="off"
                 />
                 <button 
                   type="submit" 
                   disabled={!newSkill.trim()}
-                  className="bg-brand-600 disabled:opacity-50 text-white px-4 rounded-xl font-bold flex items-center gap-1 text-xs"
+                  className="bg-brand-600 disabled:opacity-50 text-white px-4 rounded-xl font-bold flex items-center gap-1 text-sm"
                 >
                   <Plus className="w-3.5 h-3.5" /> Add
                 </button>
@@ -454,7 +454,7 @@ export default function ProfileSettings({ profile, setProfile }) {
                       <button
                         type="button"
                         onClick={() => selectSuggestedSkill(s)}
-                        className="w-full text-left px-4 py-2 text-xs font-semibold hover:bg-brand-500/10 text-slate-700 dark:text-slate-300"
+                        className="w-full text-left px-4 py-2 text-sm font-semibold hover:bg-brand-500/10 text-slate-700 dark:text-slate-300"
                       >
                         {s}
                       </button>
@@ -477,14 +477,14 @@ export default function ProfileSettings({ profile, setProfile }) {
                       className="flex items-center justify-between gap-3 p-2.5 bg-slate-100/50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800 rounded-xl"
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="text-xs font-bold text-slate-800 dark:text-white truncate">{skill}</div>
+                        <div className="text-sm font-bold text-slate-800 dark:text-white truncate">{skill}</div>
                       </div>
                       
                       <div className="flex items-center gap-2 shrink-0">
                         <select 
                           value={currentLevel}
                           onChange={(e) => handleProficiencyChange(skill, e.target.value)}
-                          className="glass-input text-[10px] font-bold py-1 px-2 cursor-pointer"
+                          className="glass-input text-xs font-bold py-1 px-2 cursor-pointer"
                         >
                           {["Beginner", "Intermediate", "Advanced", "Expert"].map(lvl => (
                             <option key={lvl} value={lvl}>{lvl}</option>
@@ -507,7 +507,7 @@ export default function ProfileSettings({ profile, setProfile }) {
           </section>
 
           <section className="glass-card p-6 space-y-4">
-            <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <Award className="w-4 h-4 text-brand-500" /> Career Personality
             </h2>
             <div className="space-y-2">
@@ -518,7 +518,7 @@ export default function ProfileSettings({ profile, setProfile }) {
                 { key: 'likeMath', label: 'Like mathematics' },
                 { key: 'enjoyTeamwork', label: 'Enjoy teamwork' },
               ].map((item) => (
-                <label key={item.key} className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                <label key={item.key} className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
                   <input
                     type="checkbox"
                     checked={Boolean(form.personalityResults[item.key])}
