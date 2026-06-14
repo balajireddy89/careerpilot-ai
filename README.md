@@ -23,10 +23,7 @@ careerpilot-ai/
 ## Features
 
 - **Dashboard** — overview and quick navigation
-- **Skill Assessment** — evaluate technical and soft skills
-- **Career Guidance** — AI-driven career recommendations
 - **Resume Analyzer** — parse and score resumes
-- **Internship Engine** — internship matching
 - **Placement Predictor** — placement readiness scoring
 - **HR & Technical Interviews** — mock interview practice
 - **Coding Platform** — coding challenges
