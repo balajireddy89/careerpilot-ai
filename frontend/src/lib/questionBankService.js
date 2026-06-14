@@ -115,6 +115,12 @@ export async function deleteMcqQuestion(id) {
   if (error) throw error;
 }
 
+export async function bulkDeleteMcqQuestions(ids) {
+  if (!ids || !ids.length) return;
+  const { error } = await supabase.from('mcq_questions').delete().in('id', ids);
+  if (error) throw error;
+}
+
 export async function toggleMcqActive(id, isActive) {
   const { data, error } = await supabase
     .from('mcq_questions')
@@ -163,6 +169,12 @@ export async function bulkCreateCodingChallenges(rows) {
 
 export async function deleteCodingChallenge(id) {
   const { error } = await supabase.from('coding_challenges').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function bulkDeleteCodingChallenges(ids) {
+  if (!ids || !ids.length) return;
+  const { error } = await supabase.from('coding_challenges').delete().in('id', ids);
   if (error) throw error;
 }
 
@@ -322,6 +334,12 @@ export async function bulkCreateHRQuestions(rows) {
 
 export async function deleteHRQuestion(id) {
   const { error } = await supabase.from('hr_questions').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function bulkDeleteHRQuestions(ids) {
+  if (!ids || !ids.length) return;
+  const { error } = await supabase.from('hr_questions').delete().in('id', ids);
   if (error) throw error;
 }
 

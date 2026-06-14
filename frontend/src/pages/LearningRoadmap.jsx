@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Calendar, CheckCircle2, Award, Circle, RefreshCw } from 'lucide-react';
-import { findRoadmapTemplate } from '../lib/questionBankService';
+import React, { useState, useEffect } from 'react';
+import { Calendar, CheckCircle2, Award, Circle, RefreshCw, AlertCircle } from 'lucide-react';
+import { findRoadmapTemplate, fetchRoadmapTemplates } from '../lib/questionBankService';
 import { getProfileKey, useFeatureSession } from '../hooks/useFeatureSession';
 
 const ROADMAP_SESSION_DEFAULT = { customCourse: '' };
@@ -13,25 +13,40 @@ export default function LearningRoadmap({ profile, setProfile }) {
   const profileKey = getProfileKey(profile);
   const [session, setSession] = useFeatureSession('learning-roadmap', profileKey, ROADMAP_SESSION_DEFAULT);
   const [loading, setLoading] = useState(false);
+  const [availableRoadmaps, setAvailableRoadmaps] = useState([]);
+  const [searchError, setSearchError] = useState('');
 
   const displayFocus = profile.primaryPriority || profile.targetRole || profile.preferredPaths?.[0] || '';
   const roadmapState = profile.learningRoadmap?.length > 0 ? profile.learningRoadmap : [];
   const canShowTarget = Boolean(profile.college?.trim() && profile.graduationYear);
 
+  useEffect(() => {
+    async function getAvailable() {
+      try {
+        const templates = await fetchRoadmapTemplates();
+        setAvailableRoadmaps(templates);
+      } catch (err) {
+        console.warn('Failed to fetch available roadmaps:', err);
+      }
+    }
+    getAvailable();
+  }, []);
+
   const loadTemplate = async (courseFocus) => {
     const focus = courseFocus || displayFocus;
     if (!focus) return;
     setLoading(true);
+    setSearchError('');
     try {
       const template = await findRoadmapTemplate(focus);
       if (template?.months?.length) {
         await setProfile({ ...profile, learningRoadmap: template.months });
       } else {
-        alert(`No admin roadmap template found for "${focus}". Ask admin to create one in Admin Panel → Learning Roadmap.`);
+        setSearchError(`No admin roadmap template found for "${focus}". Please choose from the available roadmaps below.`);
       }
     } catch (err) {
       console.warn('Roadmap template load failed:', err);
-      alert(err.message || 'Failed to load roadmap template.');
+      setSearchError(err.message || 'Failed to load roadmap template.');
     } finally {
       setLoading(false);
     }
@@ -102,9 +117,47 @@ export default function LearningRoadmap({ profile, setProfile }) {
         </button>
       </form>
 
+      {searchError && (
+        <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-xs text-rose-600 dark:text-rose-400 flex gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{searchError}</span>
+        </div>
+      )}
+
+      {availableRoadmaps.length > 0 && (
+        <div className="glass-card p-4 space-y-3">
+          <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1.5">
+            <span>Available Subjects</span>
+            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal normal-case">(Click to switch roadmaps)</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {availableRoadmaps.map((r) => {
+              const isDefault = displayFocus && r.course_name.toLowerCase() === displayFocus.toLowerCase();
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => {
+                    setSession((prev) => ({ ...prev, customCourse: r.course_name }));
+                    loadTemplate(r.course_name);
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                    isDefault
+                      ? 'bg-brand-500/15 border-brand-500/40 text-brand-600 dark:text-brand-400 font-bold'
+                      : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {r.course_name} {isDefault && '★'}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {roadmapState.length === 0 && !loading && (
         <div className="glass-card p-8 text-center text-sm text-slate-500">
-          No roadmap yet. Click Load template or enter a course name matching an admin template.
+          No roadmap yet. Click Load template or select an available subject from the list above.
         </div>
       )}
 

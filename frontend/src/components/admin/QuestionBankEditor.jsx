@@ -7,10 +7,12 @@ import {
   createMcqQuestion,
   bulkCreateMcqQuestions,
   deleteMcqQuestion,
+  bulkDeleteMcqQuestions,
   fetchCodingChallenges,
   createCodingChallenge,
   bulkCreateCodingChallenges,
   deleteCodingChallenge,
+  bulkDeleteCodingChallenges,
 } from '../../lib/questionBankService';
 import { parseMcqJson, parseCodingJson, readFilesAsText } from '../../lib/questionImportParser';
 
@@ -24,6 +26,7 @@ export default function QuestionBankEditor({ moduleType, title, defaultCategorie
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
   const [dragOver, setDragOver] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const [qText, setQText] = useState('');
   const [optA, setOptA] = useState('');
@@ -71,6 +74,10 @@ export default function QuestionBankEditor({ moduleType, title, defaultCategorie
 
   useEffect(() => { loadCategories(); }, [loadCategories]);
   useEffect(() => { loadQuestions(); }, [loadQuestions]);
+
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [selectedCategory, difficulty]);
 
   const flash = (text, isError = false) => {
     if (isError) setErr(text);
@@ -188,10 +195,31 @@ export default function QuestionBankEditor({ moduleType, title, defaultCategorie
     try {
       if (isCoding) await deleteCodingChallenge(id);
       else await deleteMcqQuestion(id);
+      setSelectedIds((prev) => prev.filter((item) => item !== id));
       await loadQuestions();
       flash('Deleted');
     } catch (e) {
       flash(e.message, true);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedIds.length) return;
+    if (!window.confirm(`Permanently delete the ${selectedIds.length} selected question(s)?`)) return;
+    setLoading(true);
+    try {
+      if (isCoding) {
+        await bulkDeleteCodingChallenges(selectedIds);
+      } else {
+        await bulkDeleteMcqQuestions(selectedIds);
+      }
+      setSelectedIds([]);
+      await loadQuestions();
+      flash(`Successfully deleted ${selectedIds.length} question(s)`);
+    } catch (e) {
+      flash(e.message || 'Failed to delete selected questions', true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -280,9 +308,39 @@ export default function QuestionBankEditor({ moduleType, title, defaultCategorie
       )}
 
       <div className="space-y-2">
-        <div className="text-xs font-bold text-slate-400 uppercase">
-          Stored questions ({questions.length}) — synced to student app
+        <div className="text-xs font-bold text-slate-400 uppercase flex items-center justify-between">
+          <span>Stored questions ({questions.length}) — synced to student app</span>
         </div>
+
+        {questions.length > 0 && !loading && (
+          <div className="flex items-center gap-4 py-2 border-b border-slate-200 dark:border-slate-800 text-xs select-none">
+            <label className="flex items-center gap-2 font-semibold text-slate-600 dark:text-slate-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={questions.length > 0 && selectedIds.length === questions.length}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedIds(questions.map((q) => q.id));
+                  } else {
+                    setSelectedIds([]);
+                  }
+                }}
+                className="w-4 h-4 rounded text-brand-600 border-slate-300 dark:border-slate-700 bg-transparent cursor-pointer"
+              />
+              Select All ({questions.length})
+            </label>
+            {selectedIds.length > 0 && (
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                className="flex items-center gap-1 text-xs font-bold text-rose-500 hover:text-rose-600 px-2 py-1 rounded bg-rose-500/10 transition-colors ml-auto animate-fade-in"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Delete Selected ({selectedIds.length})
+              </button>
+            )}
+          </div>
+        )}
+
         {loading ? (
           <p className="text-xs text-slate-500 animate-pulse">Loading...</p>
         ) : questions.length === 0 ? (
@@ -291,16 +349,30 @@ export default function QuestionBankEditor({ moduleType, title, defaultCategorie
           <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
             {questions.map((q) => (
               <div key={q.id} className="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
-                <div className="min-w-0">
-                  <p className="font-semibold text-slate-800 dark:text-white truncate">
-                    {isCoding ? q.title : q.question_text}
-                  </p>
-                  {!isCoding && (
-                    <p className="text-slate-500 mt-0.5">Answer: {q.correct_answer}</p>
-                  )}
-                  {isCoding && (
-                    <p className="text-slate-500 mt-0.5 line-clamp-2">{q.description}</p>
-                  )}
+                <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(q.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedIds((prev) => [...prev, q.id]);
+                      } else {
+                        setSelectedIds((prev) => prev.filter((id) => id !== q.id));
+                      }
+                    }}
+                    className="w-4 h-4 rounded text-brand-600 border-slate-300 dark:border-slate-700 bg-transparent shrink-0 mt-0.5 cursor-pointer"
+                  />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-800 dark:text-white truncate">
+                      {isCoding ? q.title : q.question_text}
+                    </p>
+                    {!isCoding && (
+                      <p className="text-slate-500 mt-0.5">Answer: {q.correct_answer}</p>
+                    )}
+                    {isCoding && (
+                      <p className="text-slate-500 mt-0.5 line-clamp-2">{q.description}</p>
+                    )}
+                  </div>
                 </div>
                 <button type="button" onClick={() => handleDelete(q.id)} className="shrink-0 p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg">
                   <Trash2 className="w-4 h-4" />
@@ -310,6 +382,7 @@ export default function QuestionBankEditor({ moduleType, title, defaultCategorie
           </div>
         )}
       </div>
+
     </div>
   );
 }
