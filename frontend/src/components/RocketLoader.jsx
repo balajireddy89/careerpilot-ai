@@ -1,17 +1,44 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 export default function RocketLoader({ label = 'Loading...' }) {
-  return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center gap-6 overflow-hidden">
-      <div className="rocket-scene relative w-48 h-48">
-        <div className="rocket-stars absolute inset-0" aria-hidden />
-        <div className="rocket-body absolute left-1/2 bottom-8 -translate-x-1/2 text-5xl animate-rocket-launch">
-          🚀
-        </div>
-        <div className="rocket-flame absolute left-1/2 bottom-4 -translate-x-1/2 w-3 h-10 bg-gradient-to-t from-orange-500 via-amber-400 to-transparent rounded-full animate-flame" />
-        <div className="rocket-trail absolute left-1/2 bottom-0 -translate-x-1/2 w-1 h-24 bg-gradient-to-t from-brand-500/60 to-transparent animate-trail" />
+  const [phase, setPhase] = useState('playing');
+
+  const finish = useCallback(() => {
+    setPhase('done');
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(finish, 4500);
+    return () => clearTimeout(timer);
+  }, [finish]);
+
+  if (phase === 'done') {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
+        <img
+          src="/logo.png"
+          alt="CareerPilot AI"
+          className="w-16 h-16 rounded-xl object-contain animate-pulse"
+        />
+        <p className="text-sm font-semibold text-slate-400">{label}</p>
       </div>
-      <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 animate-pulse">{label}</p>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-6 overflow-hidden">
+      <div className="relative w-64 h-64 md:w-80 md:h-80 flex items-center justify-center">
+        <video
+          src="/animated_video.mp4"
+          autoPlay
+          muted
+          playsInline
+          onEnded={finish}
+          onError={finish}
+          className="w-full h-full object-contain rounded-xl"
+        />
+      </div>
+      <p className="text-sm font-semibold text-slate-400 animate-pulse">{label}</p>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { APTITUDE_DEFAULTS } from '../lib/questionBankService';
 import QuestionBankEditor from '../components/admin/QuestionBankEditor';
 import RoadmapEditor from '../components/admin/RoadmapEditor';
 import HRQuestionBankEditor from '../components/admin/HRQuestionBankEditor';
+import JsonSchemaGuide from '../components/admin/JsonSchemaGuide';
 
 const PRIMARY_ADMIN_EMAIL = 'reddy.kuppila2006@gmail.com';
 
@@ -236,33 +237,47 @@ export default function AdminPanel({ profile }) {
           )}
 
           {activeSubTab === 'technical' && (
-            <QuestionBankEditor
-              moduleType="technical"
-              defaultCategories={TECH_INTERVIEW_TOPICS}
-              title="Import Java/Python/etc. MCQ JSON: { id, question, choices[], answer }. Questions persist until deleted."
-            />
+            <div className="space-y-4">
+              <JsonSchemaGuide type="technical" />
+              <QuestionBankEditor
+                moduleType="technical"
+                defaultCategories={TECH_INTERVIEW_TOPICS}
+                title="Import MCQ JSON per subject. Questions persist until deleted."
+              />
+            </div>
           )}
 
           {activeSubTab === 'coding' && (
-            <QuestionBankEditor
-              moduleType="coding"
-              isCoding
-              defaultCategories={['General', 'Java', 'Python', 'JavaScript']}
-              title="Import coding JSON: { id, challenge, test_cases: [{ input, output }] }. No AI generation."
-            />
+            <div className="space-y-4">
+              <JsonSchemaGuide type="coding" />
+              <QuestionBankEditor
+                moduleType="coding"
+                isCoding
+                defaultCategories={['General', 'Java', 'Python', 'JavaScript']}
+                title="Import coding JSON. JavaScript & Python auto-run tests in the IDE."
+              />
+            </div>
           )}
 
           {activeSubTab === 'aptitude' && (
-            <QuestionBankEditor
-              moduleType="aptitude"
-              defaultCategories={APTITUDE_DEFAULTS.map((c) => c.id)}
-              title="Import aptitude JSON: { id, question, choices[], answer } for quantitative, logical, or verbal."
-            />
+            <div className="space-y-4">
+              <JsonSchemaGuide type="aptitude" />
+              <QuestionBankEditor
+                moduleType="aptitude"
+                defaultCategories={APTITUDE_DEFAULTS.map((c) => c.id)}
+                title="Import aptitude MCQ JSON for quantitative, logical, or verbal categories."
+              />
+            </div>
           )}
 
           {activeSubTab === 'roadmap' && <RoadmapEditor />}
 
-          {activeSubTab === 'hr-questions' && <HRQuestionBankEditor />}
+          {activeSubTab === 'hr-questions' && (
+            <div className="space-y-4">
+              <JsonSchemaGuide type="hr" />
+              <HRQuestionBankEditor />
+            </div>
+          )}
 
           {activeSubTab === 'reports' && (
             <div className="space-y-6 max-w-md">

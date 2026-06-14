@@ -36,6 +36,14 @@ export default function ProfileSettings({ profile, setProfile }) {
     interests: profile.interests || [],
     codingRating: profile.codingRating || { dsa: 1, algorithms: 1, problemSolving: 1 },
     hrRating: profile.hrRating || { confidence: 1, publicSpeaking: 1, communication: 1, englishProficiency: 1 },
+    personalityResults: profile.personalityResults || {
+      enjoyCoding: true,
+      enjoyData: false,
+      preferDesign: false,
+      likeMath: true,
+      enjoyTeamwork: true,
+    },
+    onboardingAptitudeScore: profile.onboardingAptitudeScore ?? null,
   });
 
   const [newSkill, setNewSkill] = useState('');
@@ -119,6 +127,32 @@ export default function ProfileSettings({ profile, setProfile }) {
     setSaved(false);
   };
 
+  const selectSuggestedSkill = (skillName) => {
+    if (form.skills.includes(skillName)) return;
+    setForm((prev) => ({
+      ...prev,
+      skills: [...prev.skills, skillName],
+      skillsProficiency: {
+        ...prev.skillsProficiency,
+        [skillName]: 'Intermediate',
+      },
+    }));
+    setNewSkill('');
+    setShowSuggestions(false);
+    setSaved(false);
+  };
+
+  const handlePersonalityToggle = (key) => {
+    setForm((prev) => ({
+      ...prev,
+      personalityResults: {
+        ...prev.personalityResults,
+        [key]: !prev.personalityResults[key],
+      },
+    }));
+    setSaved(false);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -142,7 +176,7 @@ export default function ProfileSettings({ profile, setProfile }) {
             <User className="w-8 h-8 text-brand-500" /> Profile
           </h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm">
-            Update your details anytime. Changes are saved to your Supabase account.
+            Update your details anytime. Changes sync with your dashboard and AI advisor.
           </p>
         </div>
         <button
@@ -419,7 +453,7 @@ export default function ProfileSettings({ profile, setProfile }) {
                     <li key={s}>
                       <button
                         type="button"
-                        onClick={() => addCustomSkill(s)}
+                        onClick={() => selectSuggestedSkill(s)}
                         className="w-full text-left px-4 py-2 text-xs font-semibold hover:bg-brand-500/10 text-slate-700 dark:text-slate-300"
                       >
                         {s}
@@ -471,6 +505,36 @@ export default function ProfileSettings({ profile, setProfile }) {
               )}
             </div>
           </section>
+
+          <section className="glass-card p-6 space-y-4">
+            <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+              <Award className="w-4 h-4 text-brand-500" /> Career Personality
+            </h2>
+            <div className="space-y-2">
+              {[
+                { key: 'enjoyCoding', label: 'Enjoy coding' },
+                { key: 'enjoyData', label: 'Enjoy data analysis' },
+                { key: 'preferDesign', label: 'Prefer design over logic' },
+                { key: 'likeMath', label: 'Like mathematics' },
+                { key: 'enjoyTeamwork', label: 'Enjoy teamwork' },
+              ].map((item) => (
+                <label key={item.key} className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.personalityResults[item.key])}
+                    onChange={() => handlePersonalityToggle(item.key)}
+                    className="accent-brand-500 rounded"
+                  />
+                  <span>{item.label}</span>
+                </label>
+              ))}
+            </div>
+            {form.onboardingAptitudeScore != null && (
+              <p className="text-xs text-slate-500 pt-2 border-t border-slate-100 dark:border-slate-800">
+                Onboarding aptitude baseline: <strong className="text-brand-500">{form.onboardingAptitudeScore}%</strong>
+              </p>
+            )}
+          </section>
         </div>
 
       </div>
@@ -485,7 +549,7 @@ export default function ProfileSettings({ profile, setProfile }) {
           <Save className="w-4 h-4" />
           {saving ? 'Saving updates...' : 'Save Profile Changes'}
         </button>
-        {saved && <span className="text-xs text-emerald-500 font-bold flex items-center gap-1 animate-fade-in">✓ Synced to Supabase and checklist updated</span>}
+        {saved && <span className="text-xs text-emerald-500 font-bold flex items-center gap-1 animate-fade-in">✓ Profile synced</span>}
       </div>
     </div>
   );

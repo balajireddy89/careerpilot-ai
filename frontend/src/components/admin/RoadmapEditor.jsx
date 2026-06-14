@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Plus, Trash2, RefreshCw, Save } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Save, Upload, FileJson } from 'lucide-react';
 import { fetchAllRoadmapTemplates, upsertRoadmapTemplate, deleteRoadmapTemplate } from '../../lib/questionBankService';
+import { parseRoadmapJson, readFilesAsText } from '../../lib/questionImportParser';
+import JsonSchemaGuide from './JsonSchemaGuide';
 
 const EMPTY_MONTH = {
   month: 'Month 1',
@@ -15,6 +17,8 @@ export default function RoadmapEditor() {
   const [months, setMonths] = useState([EMPTY_MONTH]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
+  const [jsonPaste, setJsonPaste] = useState('');
+  const [dragOver, setDragOver] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -30,11 +34,36 @@ export default function RoadmapEditor() {
 
   useEffect(() => { load(); }, [load]);
 
+  const applyRoadmapImport = (text, sourceName = 'JSON') => {
+    try {
+      const { courseName: importedName, months: importedMonths } = parseRoadmapJson(text);
+      if (importedMonths?.length) setMonths(importedMonths);
+      if (importedName && !courseName.trim()) setCourseName(importedName);
+      setMsg(`Loaded roadmap from ${sourceName} (${importedMonths.length} phase(s))`);
+      setTimeout(() => setMsg(''), 3500);
+    } catch (e) {
+      alert(e.message || 'Invalid roadmap JSON');
+    }
+  };
+
+  const handleFiles = async (files) => {
+    const texts = await readFilesAsText(files);
+    for (const { name, text } of texts) {
+      applyRoadmapImport(text, name);
+    }
+  };
+
+  const handlePasteImport = () => {
+    if (!jsonPaste.trim()) return;
+    applyRoadmapImport(jsonPaste, 'paste');
+    setJsonPaste('');
+  };
+
   const handleSave = async () => {
     if (!courseName.trim()) return;
     try {
       await upsertRoadmapTemplate(courseName.trim(), months);
-      setMsg('Roadmap template saved');
+      setMsg('Roadmap template saved — synced with student Learning Roadmap tab');
       setTimeout(() => setMsg(''), 3000);
       await load();
     } catch (e) {
@@ -64,17 +93,39 @@ export default function RoadmapEditor() {
 
   return (
     <div className="space-y-6">
+      <JsonSchemaGuide type="roadmap" />
+
       <p className="text-xs text-slate-500">
-        Create syllabus templates students can load. Each topic awards +40 XP once when completed (anti-spam enabled).
+        Create or import syllabus templates. Students load them from Learning Roadmap. Import <code className="text-brand-500">roadmap.json</code> (phases format) or months[] JSON.
       </p>
 
       {msg && <p className="text-xs text-emerald-600 font-bold">{msg}</p>}
+
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
+        className={`border-2 border-dashed rounded-2xl p-5 text-center transition-colors ${dragOver ? 'border-brand-500 bg-brand-500/5' : 'border-slate-300 dark:border-slate-700'}`}
+      >
+        <Upload className="w-7 h-7 text-brand-500 mx-auto mb-2 opacity-70" />
+        <p className="text-xs font-bold text-slate-600 dark:text-slate-300">Drag & drop roadmap.json here</p>
+        <label className="inline-block mt-2 px-4 py-2 bg-brand-600 text-white text-xs font-bold rounded-xl cursor-pointer">
+          Browse JSON
+          <input type="file" accept=".json,application/json" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+        </label>
+      </div>
+
+      <div className="glass-card p-4 space-y-2">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase"><FileJson className="w-4 h-4" /> Paste roadmap JSON</div>
+        <textarea rows={5} value={jsonPaste} onChange={(e) => setJsonPaste(e.target.value)} className="glass-input text-xs font-mono w-full resize-none" placeholder='Paste roadmap.json content or months[] array...' />
+        <button type="button" onClick={handlePasteImport} className="text-xs font-bold text-brand-600 hover:underline">Import pasted JSON</button>
+      </div>
 
       <div className="flex flex-wrap gap-2">
         <input
           value={courseName}
           onChange={(e) => setCourseName(e.target.value)}
-          placeholder="Course name e.g. Java, Full Stack"
+          placeholder="Course name e.g. Python Developer, Full Stack"
           className="glass-input text-sm flex-1 min-w-[200px]"
         />
         <button type="button" onClick={handleSave} className="flex items-center gap-1 bg-brand-600 text-white px-4 py-2 rounded-xl text-xs font-bold">
@@ -127,19 +178,19 @@ export default function RoadmapEditor() {
           </div>
         ))}
         <button type="button" onClick={addMonth} className="text-xs font-bold text-brand-600 flex items-center gap-1">
-          <Plus className="w-3.5 h-3.5" /> Add month
+          <Plus className="w-3.5 h-3.5" /> Add month / phase
         </button>
       </div>
 
       <div className="space-y-2">
-        <div className="text-xs font-bold text-slate-400 uppercase">Saved templates</div>
+        <div className="text-xs font-bold text-slate-400 uppercase">Saved templates (synced with Learning Roadmap)</div>
         {templates.length === 0 ? (
-          <p className="text-xs text-slate-500">No templates yet.</p>
+          <p className="text-xs text-slate-500">No templates yet. Import roadmap.json or build manually.</p>
         ) : (
           templates.map((t) => (
             <div key={t.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
               <button type="button" onClick={() => loadTemplate(t)} className="font-bold text-left hover:text-brand-600">
-                {t.course_name} <span className="text-slate-400 font-normal">({t.months?.length || 0} months)</span>
+                {t.course_name} <span className="text-slate-400 font-normal">({t.months?.length || 0} phases)</span>
               </button>
               <button
                 type="button"

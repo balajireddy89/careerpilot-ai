@@ -102,44 +102,53 @@ export default function CodingPlatform({ profile, setProfile, onNavigate }) {
   const handleRunCode = async () => {
     if (!selectedChallenge) return;
     setCompiling(true);
-    setSession((prev) => ({ ...prev, runLogs: ['Running local test cases...'], showHelp: false }));
+    setSession((prev) => ({ ...prev, runLogs: ['Running test cases...'], showHelp: false }));
 
-    const result = reviewCodeLocally({
-      code: session.editorCode,
-      challenge: selectedChallenge,
-      language: session.selectedLanguage,
-    });
-
-    setSession((prev) => ({
-      ...prev,
-      testResult: result.passed ? 'passed' : 'failed',
-      runLogs: result.logs,
-      feedback: result.feedback,
-    }));
-
-    if (result.passed) {
-      const challengeKey = `${session.difficulty}:${selectedChallenge.dbId || selectedChallenge.id}`;
-      const isEasy = session.difficulty === 'Easy';
-      const isMed = session.difficulty === 'Medium';
-      const { profile: updated, xpEarned } = recordCodingSolve(profile, challengeKey, 200);
-
-      const newEasy = isEasy ? profile.codingStats.solvedEasy + 1 : profile.codingStats.solvedEasy;
-      const newMed = isMed ? profile.codingStats.solvedMedium + 1 : profile.codingStats.solvedMedium;
-      const newHard = !isEasy && !isMed ? profile.codingStats.solvedHard + 1 : profile.codingStats.solvedHard;
-
-      setProfile({
-        ...updated,
-        codingStats: {
-          ...updated.codingStats,
-          solvedEasy: Math.min(updated.codingStats.totalEasy, newEasy),
-          solvedMedium: Math.min(updated.codingStats.totalMedium, newMed),
-          solvedHard: Math.min(updated.codingStats.totalHard, newHard),
-          score: updated.codingStats.score + (xpEarned > 0 ? 100 : 0),
-        },
+    try {
+      const result = await reviewCodeLocally({
+        code: session.editorCode,
+        challenge: selectedChallenge,
+        language: session.selectedLanguage,
       });
-    }
 
-    setCompiling(false);
+      setSession((prev) => ({
+        ...prev,
+        testResult: result.passed ? 'passed' : 'failed',
+        runLogs: result.logs,
+        feedback: result.feedback,
+      }));
+
+      if (result.passed) {
+        const challengeKey = `${session.difficulty}:${selectedChallenge.dbId || selectedChallenge.id}`;
+        const isEasy = session.difficulty === 'Easy';
+        const isMed = session.difficulty === 'Medium';
+        const { profile: updated, xpEarned } = recordCodingSolve(profile, challengeKey, 200);
+
+        const newEasy = isEasy ? profile.codingStats.solvedEasy + 1 : profile.codingStats.solvedEasy;
+        const newMed = isMed ? profile.codingStats.solvedMedium + 1 : profile.codingStats.solvedMedium;
+        const newHard = !isEasy && !isMed ? profile.codingStats.solvedHard + 1 : profile.codingStats.solvedHard;
+
+        setProfile({
+          ...updated,
+          codingStats: {
+            ...updated.codingStats,
+            solvedEasy: Math.min(updated.codingStats.totalEasy, newEasy),
+            solvedMedium: Math.min(updated.codingStats.totalMedium, newMed),
+            solvedHard: Math.min(updated.codingStats.totalHard, newHard),
+            score: updated.codingStats.score + (xpEarned > 0 ? 100 : 0),
+          },
+        });
+      }
+    } catch (err) {
+      setSession((prev) => ({
+        ...prev,
+        testResult: 'failed',
+        runLogs: [...prev.runLogs, err.message || 'Test run failed'],
+        feedback: 'Could not run tests.',
+      }));
+    } finally {
+      setCompiling(false);
+    }
   };
 
   const handleManualPass = () => {
@@ -184,7 +193,7 @@ export default function CodingPlatform({ profile, setProfile, onNavigate }) {
             <Code2 className="w-8 h-8 text-brand-500" /> Coding Practice Platform
           </h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
-            Admin-curated challenges from Supabase. JavaScript runs locally; Java/Python use manual verification.
+            Admin-curated challenges. JavaScript and Python run automated tests in the browser.
           </p>
         </div>
         {loadError && (
@@ -293,7 +302,7 @@ export default function CodingPlatform({ profile, setProfile, onNavigate }) {
                         {session.showHelp ? 'Hide solution' : 'Show solution'}
                       </button>
                     )}
-                    {session.selectedLanguage !== 'JavaScript' && (
+                    {session.selectedLanguage !== 'JavaScript' && session.selectedLanguage !== 'Python' && (
                       <button
                         type="button"
                         onClick={handleManualPass}

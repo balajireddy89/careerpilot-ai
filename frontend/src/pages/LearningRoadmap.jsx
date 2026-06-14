@@ -73,7 +73,7 @@ export default function LearningRoadmap({ profile, setProfile }) {
           <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white">Personalized Learning Roadmap</h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
             {displayFocus ? (
-              <>Tailored for <strong>{displayFocus}</strong> — loaded from admin templates in Supabase.</>
+              <>Tailored for <strong>{displayFocus}</strong> — loaded from admin roadmap templates.</>
             ) : (
               'Set your primary learning priority in Profile or onboarding.'
             )}

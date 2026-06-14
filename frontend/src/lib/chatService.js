@@ -3,6 +3,23 @@ import { callOpenRouter } from './openRouter';
 import { recalculateReadiness, hasUploadedResume } from '../mock/mockData';
 
 export async function sendChatMessage({ profile, userMessage, history = [] }) {
+  const lower = userMessage.toLowerCase();
+  const blockedPatterns = [
+    'tech stack', 'technology stack', 'what ai model', 'which model', 'openrouter', 'supabase',
+    'how does this website work', 'how does the website work', 'source code', 'built with',
+    'what framework', 'vercel', 'spring boot', 'admin panel json', 'environment variable',
+  ];
+  if (blockedPatterns.some((p) => lower.includes(p))) {
+    return `## Career guidance only
+
+I help with **career planning, skills, interviews, coding practice, aptitude, and your learning roadmap** — not internal website or AI infrastructure details.
+
+Try asking:
+- What skills am I missing for my target role?
+- How can I improve my resume or interview scores?
+- What should I study next on my roadmap?`;
+  }
+
   const systemPrompt = buildChatSystemPrompt(profile);
   const recentHistory = history
     .filter((m) => m.sender === 'user' || m.sender === 'bot')

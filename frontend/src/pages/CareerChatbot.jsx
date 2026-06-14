@@ -9,7 +9,7 @@ import { recalculateReadiness } from '../mock/mockData';
 function buildWelcomeMessage(profile) {
   return {
     id: 1,
-    text: `Hello **${profile.name || 'there'}**! I'm your CareerPilot AI Advisor.\n\nI'm connected to your live Supabase profile — skills, resume, placement readiness, interviews, coding, aptitude, and your learning roadmap.\n\n**Focus:** ${profile.primaryPriority || profile.targetRole || 'Set in Profile'} | **Readiness:** ${recalculateReadiness(profile)}% | **Skills:** ${profile.skills?.length ?? 0}\n\nWhat would you like to know?`,
+    text: `Hello **${profile.name || 'there'}**! I'm your CareerPilot AI Advisor.\n\nI'm connected to your profile — skills, resume, placement readiness, interviews, coding, aptitude, and your learning roadmap.\n\n**Focus:** ${profile.primaryPriority || profile.targetRole || 'Set in Profile'} | **Readiness:** ${recalculateReadiness(profile)}% | **Skills:** ${profile.skills?.length ?? 0}\n\nAsk about career paths, skills, interview prep, or what to study next.`,
     sender: 'bot',
   };
 }
@@ -113,7 +113,7 @@ export default function CareerChatbot({ profile }) {
           <div className="bg-slate-50 dark:bg-slate-900/60 px-5 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
             <span className="text-xs font-bold text-slate-700 dark:text-slate-200">CareerPilot Advisor</span>
-            <span className="text-[10px] text-slate-400 font-semibold">(OpenRouter · all modules linked)</span>
+            <span className="text-[10px] text-slate-400 font-semibold">Career & learning advisor</span>
             <button
               type="button"
               onClick={handleNewSession}

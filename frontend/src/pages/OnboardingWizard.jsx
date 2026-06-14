@@ -156,7 +156,9 @@ export default function OnboardingWizard({ profile, setProfile }) {
       email: formData.email || profile.email,
       primaryPriority: formData.primaryPriority,
       targetRole: formData.primaryPriority,
-      preferredPaths: formData.primaryPriority ? [formData.primaryPriority, ...formData.preferredPaths.filter((p) => p !== formData.primaryPriority)] : formData.preferredPaths,
+      preferredPaths: formData.primaryPriority
+        ? [formData.primaryPriority, ...formData.preferredPaths.filter((p) => p !== formData.primaryPriority)]
+        : formData.preferredPaths,
       learningRoadmap,
       phone: formData.phone,
       college: formData.college,
@@ -166,7 +168,6 @@ export default function OnboardingWizard({ profile, setProfile }) {
       graduationYear: Number(formData.graduationYear),
       cgpa: formData.cgpa,
       aims: formData.aims,
-      preferredPaths: formData.preferredPaths,
       skills: formData.skills,
       skillsProficiency: formData.skillsProficiency,
       codingRating: formData.codingRating,
@@ -176,6 +177,7 @@ export default function OnboardingWizard({ profile, setProfile }) {
       interests: formData.interests,
       weeklyHours: formData.weeklyHours,
       personalityResults: formData.personalityResults,
+      onboardingAptitudeScore: finalAptPct,
       points: profile.points + 500,
       aptitudeStats: { ...INITIAL_PROFILE.aptitudeStats },
       codingStats: { ...INITIAL_PROFILE.codingStats },
@@ -403,7 +405,7 @@ export default function OnboardingWizard({ profile, setProfile }) {
               
               {uploading ? (
                 <div className="space-y-2">
-                  <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Extracting profile details using OpenRouter gpt-oss-120b...</p>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Extracting profile details from your resume...</p>
                   <div className="w-44 bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full mx-auto overflow-hidden">
                     <div className="bg-brand-500 h-full rounded-full animate-[shimmer_1.5s_infinite]" style={{ width: '50%' }}></div>
                   </div>

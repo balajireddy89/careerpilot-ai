@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mic, MicOff, MessageSquare, Award, Send, RefreshCw, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Mic, MicOff, MessageSquare, Award, Send, RefreshCw, ChevronLeft, ChevronRight, ArrowLeft, AlertCircle } from 'lucide-react';
 import { fetchHRQuestions } from '../lib/questionBankService';
 import { evaluateHRAnswer } from '../lib/aiService';
 import { getProfileKey, useFeatureSession } from '../hooks/useFeatureSession';
@@ -142,7 +142,7 @@ export default function HRInterview({ profile, setProfile }) {
       setProfile(updatedProfile);
     } catch (err) {
       console.error('HR evaluation failed:', err);
-      alert('AI evaluation failed. Check your OpenRouter API key in config and try again.');
+      alert('AI evaluation failed. Please try again in a moment.');
     } finally {
       setEvaluating(false);
     }
@@ -367,7 +367,7 @@ export default function HRInterview({ profile, setProfile }) {
                 <MessageSquare className="w-10 h-10 text-slate-300 mb-2" />
                 <h4 className="text-sm font-bold text-slate-800 dark:text-white">Analysis Pending</h4>
                 <p className="text-xs text-slate-500 max-w-xs mt-1.5 leading-relaxed">
-                  Submit your answer for OpenRouter AI evaluation of tone, structure, and professionalism.
+                  Submit your answer for AI evaluation of tone, structure, and professionalism.
                 </p>
               </div>
             )}

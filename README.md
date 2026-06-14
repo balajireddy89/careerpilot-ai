@@ -69,6 +69,20 @@ mvn spring-boot:run
 
 Run the SQL files in `supabase/` against your Supabase project.
 
+## Admin JSON imports
+
+Sample import files live in `sample-data/` at the repo root:
+
+| File | Admin tab | Format |
+|------|-----------|--------|
+| `hr-tcs.json` | HR Questions | `[{ "id": 1, "question": "..." }]` |
+| `codingeasy.json` | Coding Practice | `[{ "id", "challenge", "test_cases": [{ "input", "output" }] }]` |
+| `roadmap.json` | Learning Roadmap | `{ "roadmapTitle", "phases": [{ "phaseName", "topics": [...] }] }` |
+| `pythonquestions.json` / `javaquestions.json` | Technical Interview | MCQ with `choices[]` and `answer` |
+| `quantitativequestions.json` | Aptitude Prep | Same MCQ format |
+
+The Admin Panel shows expandable JSON format guides on each content tab. Roadmap `phases` JSON auto-converts to the student `months[]` structure used in Learning Roadmap.
+
 ## Contributors
 
 See [CONTRIBUTORS.md](CONTRIBUTORS.md).

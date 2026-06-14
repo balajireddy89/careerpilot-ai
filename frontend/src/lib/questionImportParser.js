@@ -63,6 +63,53 @@ export function parseCodingJson(text, difficulty, categoryName) {
     .filter(Boolean);
 }
 
+export function parseRoadmapJson(text) {
+  const parsed = JSON.parse(text);
+
+  if (Array.isArray(parsed)) {
+    return { courseName: '', months: normalizeMonthsArray(parsed) };
+  }
+
+  if (parsed.months && Array.isArray(parsed.months)) {
+    return {
+      courseName: parsed.courseName || parsed.roadmapTitle || parsed.course_name || '',
+      months: normalizeMonthsArray(parsed.months),
+    };
+  }
+
+  if (parsed.phases && Array.isArray(parsed.phases)) {
+    const months = parsed.phases.map((phase, index) => ({
+      month: phase.estimatedTime || `Phase ${phase.phaseId ?? index + 1}`,
+      title: phase.phaseName || `Phase ${index + 1}`,
+      desc: phase.difficultyLevel || '',
+      topics: (phase.topics || []).map((topic) => ({
+        name: topic.name || 'Untitled topic',
+        status: false,
+        details: topic.details || [],
+      })),
+    }));
+    return {
+      courseName: parsed.roadmapTitle || parsed.courseName || '',
+      months,
+    };
+  }
+
+  throw new Error('Unrecognized roadmap format. Use roadmap.json (phases) or months[] array.');
+}
+
+function normalizeMonthsArray(months) {
+  return months.map((m, index) => ({
+    month: m.month || `Month ${index + 1}`,
+    title: m.title || m.phaseName || '',
+    desc: m.desc || m.description || '',
+    topics: (m.topics || []).map((t) => ({
+      name: typeof t === 'string' ? t : t.name || 'Topic',
+      status: Boolean(t.status),
+      details: t.details || [],
+    })),
+  }));
+}
+
 export async function readFilesAsText(fileList) {
   const files = Array.from(fileList || []);
   const results = await Promise.all(
