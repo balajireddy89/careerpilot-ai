@@ -57,6 +57,25 @@ export function shuffleArray(arr) {
   return copy;
 }
 
+function loadScript(src, integrity = null) {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${src}"]`);
+    if (existing) {
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = src;
+    if (integrity) {
+      script.integrity = integrity;
+      script.crossOrigin = 'anonymous';
+    }
+    script.onload = () => resolve();
+    script.onerror = (err) => reject(err);
+    document.head.appendChild(script);
+  });
+}
+
 export async function extractTextFromFile(file) {
   const ext = file.name.split('.').pop()?.toLowerCase();
 
@@ -65,15 +84,53 @@ export async function extractTextFromFile(file) {
   }
 
   if (ext === 'pdf') {
-    const buffer = await file.arrayBuffer();
-    const raw = new TextDecoder('latin1').decode(new Uint8Array(buffer));
-    const chunks = raw.match(/\((?:\\.|[^\\)])*?\)/g) || [];
-    const text = chunks
-      .map((chunk) => chunk.slice(1, -1).replace(/\\n/g, '\n').replace(/\\r/g, ''))
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (text.length > 80) return text.slice(0, 15000);
+    try {
+      const buffer = await file.arrayBuffer();
+      // Pinned CDN version with SRI verification
+      await loadScript(
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+        'sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e'
+      );
+
+      const pdfjsLib = window.pdfjsLib;
+      // Configure worker securely using pinned matching version
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+      const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
+      const pdf = await loadingTask.promise;
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((item) => item.str).join(' ');
+        fullText += pageText + '\n';
+      }
+
+      if (fullText.trim().length > 0) {
+        return fullText.slice(0, 15000);
+      }
+    } catch (err) {
+      console.error('PDF.js text extraction failed:', err);
+    }
+  }
+
+  if (ext === 'docx') {
+    try {
+      const buffer = await file.arrayBuffer();
+      // Pinned CDN version with SRI verification
+      await loadScript(
+        'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',
+        'sha384-nFoSjZIoH3CCp8W639jJyQkuPHinJ2NHe7on1xvlUA7SuGfJAfvMldrsoAVm6ECz'
+      );
+
+      const mammoth = window.mammoth;
+      const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+      if (result && result.value && result.value.trim().length > 0) {
+        return result.value.slice(0, 15000);
+      }
+    } catch (err) {
+      console.error('Mammoth docx text extraction failed:', err);
+    }
   }
 
   return `[Resume file: ${file.name}. Text extraction limited for .${ext || 'unknown'} — use filename, profile skills, and any readable fragments.]`;
